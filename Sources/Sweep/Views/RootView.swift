@@ -5,36 +5,41 @@ struct RootView: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        VStack(spacing: 0) {
-            if model.hasOnboarded {
-                HeaderView()
-                Picker("Section", selection: $model.tab) {
-                    ForEach(AppModel.Tab.allCases) { tab in
-                        Text(tab.title).tag(tab)
+        ZStack(alignment: .bottom) {
+            GlassBackground()
+
+            VStack(spacing: 0) {
+                if model.hasOnboarded {
+                    HeaderView()
+                    BubbleTabs(tabs: model.visibleTabs, selection: $model.tab)
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 10)
+
+                    Group {
+                        switch model.tab {
+                        case .clean: CleanView()
+                        case .apps: AppsView()
+                        case .settings: SettingsView()
+                        }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    OnboardingView()
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .padding(.horizontal, 14)
-                .padding(.bottom, 10)
+            }
 
-                Divider()
-
-                Group {
-                    switch model.tab {
-                    case .clean: CleanView()
-                    case .apps: AppsView()
-                    case .settings: SettingsView()
+            if let message = model.statusMessage {
+                Toast(message: message) { model.statusMessage = nil }
+                    .padding(.bottom, 14)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .task(id: message) {
+                        try? await Task.sleep(nanoseconds: 5_000_000_000)
+                        if model.statusMessage == message { model.statusMessage = nil }
                     }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                Divider()
-                FooterView()
-            } else {
-                OnboardingView()
             }
         }
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: model.statusMessage)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: model.proMode)
         .frame(width: 400, height: 580)
         .onAppear {
             model.refreshDisk()
@@ -47,76 +52,71 @@ private struct HeaderView: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
+        VStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Label("Sweep", systemImage: "sparkles")
-                    .font(.headline)
+                    .font(.system(size: 15, weight: .semibold))
+                    .labelStyle(SweepLabelStyle())
                 Spacer()
-                Text(model.profiles.sorted { $0.rawValue < $1.rawValue }.map(\.title).joined(separator: " · "))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                ProButton(isOn: $model.proMode)
+                Button {
+                    NSApplication.shared.terminate(nil)
+                } label: {
+                    Image(systemName: "power")
+                }
+                .buttonStyle(RoundButtonStyle())
+                .keyboardShortcut("q")
+                .help("Quit Sweep")
+                .accessibilityLabel("Quit Sweep")
             }
-            if let disk = model.disk {
+            if model.proMode, let disk = model.disk {
                 DiskBar(usage: disk)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(14)
+        .padding(.leading, 18)
+        .padding(.trailing, 14)
+        .padding(.top, 14)
+        .padding(.bottom, 10)
+    }
+}
+
+private struct SweepLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 6) {
+            configuration.icon.foregroundStyle(Palette.blue)
+            configuration.title
+        }
     }
 }
 
 struct DiskBar: View {
     let usage: DiskUsage
 
+    var body: some View {
+        HStack(spacing: 10) {
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.primary.opacity(0.10))
+                    Capsule()
+                        .fill(LinearGradient(colors: [Palette.blueTop, tint], startPoint: .leading, endPoint: .trailing))
+                        .frame(width: proxy.size.width * usage.usedFraction)
+                }
+            }
+            .frame(height: 7)
+            Text("\(ByteFormat.string(usage.available)) free of \(ByteFormat.string(usage.total))")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+                .fixedSize()
+        }
+    }
+
     private var tint: Color {
         switch usage.usedFraction {
-        case ..<0.75: return .accentColor
+        case ..<0.75: return Palette.blueBottom
         case ..<0.9: return .orange
         default: return .red
         }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ProgressView(value: usage.usedFraction)
-                .tint(tint)
-            HStack {
-                Text("\(ByteFormat.string(usage.available)) available")
-                Spacer()
-                Text("\(ByteFormat.string(usage.used)) of \(ByteFormat.string(usage.total)) used")
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .monospacedDigit()
-        }
-    }
-}
-
-private struct FooterView: View {
-    @EnvironmentObject private var model: AppModel
-
-    var body: some View {
-        HStack(spacing: 8) {
-            if let message = model.statusMessage {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                Button {
-                    model.statusMessage = nil
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-            }
-            Spacer()
-            Button("Quit") {
-                NSApplication.shared.terminate(nil)
-            }
-            .keyboardShortcut("q")
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
     }
 }

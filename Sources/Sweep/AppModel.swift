@@ -11,7 +11,7 @@ final class AppModel: ObservableObject {
             switch self {
             case .clean: return "Clean"
             case .apps: return "Apps"
-            case .settings: return "Profile"
+            case .settings: return "Settings"
             }
         }
     }
@@ -28,11 +28,20 @@ final class AppModel: ObservableObject {
         case all, some, none
     }
 
+    /// One on/off card in simple mode: the safe, preselected items of a category.
+    struct SimpleGroup: Identifiable {
+        let category: RuleCategory
+        let items: [ScanItem]
+        var id: RuleCategory { category }
+        var bytes: Int64 { items.reduce(0) { $0 + $1.bytes } }
+    }
+
     private enum Keys {
         static let profiles = "profiles"
         static let onboarded = "hasOnboarded"
         static let showFreeSpace = "showFreeSpaceInMenuBar"
         static let alwaysUseTrash = "alwaysUseTrash"
+        static let proMode = "proMode"
     }
 
     // MARK: Settings
@@ -55,6 +64,15 @@ final class AppModel: ObservableObject {
         didSet { UserDefaults.standard.set(alwaysUseTrash, forKey: Keys.alwaysUseTrash) }
     }
     @Published private(set) var launchesAtLogin = false
+    /// Simple mode shows only safe choices; Pro shows every rule, file and setting.
+    @Published var proMode: Bool {
+        didSet {
+            UserDefaults.standard.set(proMode, forKey: Keys.proMode)
+            if !proMode && tab == .settings { tab = .clean }
+        }
+    }
+
+    var visibleTabs: [Tab] { proMode ? Tab.allCases : [.clean, .apps] }
 
     // MARK: Clean tab
 
@@ -97,6 +115,7 @@ final class AppModel: ObservableObject {
         hasOnboarded = defaults.bool(forKey: Keys.onboarded)
         showFreeSpaceInMenuBar = defaults.bool(forKey: Keys.showFreeSpace)
         alwaysUseTrash = defaults.bool(forKey: Keys.alwaysUseTrash)
+        proMode = defaults.bool(forKey: Keys.proMode)
         unusedThresholdDays = Self.unusedThreshold(for: initialProfiles)
         catalog = RuleCatalog.load(overrideURL: AppPaths.rulesOverride)
 
@@ -232,6 +251,30 @@ final class AppModel: ObservableObject {
             selectedItems.formUnion(result.items.filter { $0.inUseBy == nil }.map(\.id))
         } else {
             selectedItems.subtract(result.items.map(\.id))
+        }
+    }
+
+    /// Simple mode never offers items that need review or belong to an open app.
+    var simpleGroups: [SimpleGroup] {
+        guard let report else { return [] }
+        return report.categories.compactMap { category in
+            let items = report.results(in: category)
+                .filter { $0.policy.preselect }
+                .flatMap { $0.items.filter { $0.inUseBy == nil } }
+            return items.isEmpty ? nil : SimpleGroup(category: category, items: items)
+        }
+    }
+
+    func isOn(_ group: SimpleGroup) -> Bool {
+        group.items.contains { selectedItems.contains($0.id) }
+    }
+
+    func toggle(_ group: SimpleGroup) {
+        if isOn(group) {
+            let all = report?.results(in: group.category).flatMap { $0.items.map(\.id) } ?? []
+            selectedItems.subtract(all)
+        } else {
+            selectedItems.formUnion(group.items.map(\.id))
         }
     }
 
@@ -376,6 +419,19 @@ final class AppModel: ObservableObject {
                 self.statusMessage = "\(app.name) moved to the Trash with \(files.count) related item\(files.count == 1 ? "" : "s")."
             }
         }
+    }
+
+    /// Simple mode removes an app together with all of its support files.
+    func uninstallWithSupportFiles(_ app: InstalledApp) {
+        Task {
+            let files = await relatedFiles(for: app)
+            uninstall(app, including: files)
+        }
+    }
+
+    func removeAllLeftovers() {
+        selectedLeftovers = Set(leftovers.map(\.id))
+        removeSelectedLeftovers()
     }
 
     func toggleLeftover(_ group: LeftoverGroup) {

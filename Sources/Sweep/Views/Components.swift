@@ -3,14 +3,14 @@ import SweepCore
 
 struct Checkbox: View {
     let state: AppModel.SelectionState
-    let action: () -> Void
+    let action: @MainActor () -> Void
 
-    init(state: AppModel.SelectionState, action: @escaping () -> Void) {
+    init(state: AppModel.SelectionState, action: @escaping @MainActor () -> Void) {
         self.state = state
         self.action = action
     }
 
-    init(isOn: Bool, action: @escaping () -> Void) {
+    init(isOn: Bool, action: @escaping @MainActor () -> Void) {
         self.init(state: isOn ? .all : .none, action: action)
     }
 
@@ -50,7 +50,7 @@ struct Tag: View {
 struct ItemRow: View {
     let item: ScanItem
     let isSelected: Bool
-    let toggle: () -> Void
+    let toggle: @MainActor () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
@@ -148,11 +148,11 @@ struct FullDiskAccessBanner: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Button("Open Privacy Settings") { SystemIntegration.openFullDiskAccessSettings() }
-                    .controlSize(.small)
+                    .buttonStyle(BubbleButtonStyle())
             }
         }
-        .padding(10)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        .background(Color.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
