@@ -1,0 +1,998 @@
+<title>Sweep Menu Bar Cleaner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a framed Mac desktop is the hero (menu bar + live Sweep panel), followed by a two-column notes / policy table. */
+:root {
+  --page: #eef1ef;
+  --ink: #18201e;
+  --ink-2: #56625f;
+  --line: #d3dad7;
+  --card: #ffffff;
+  --accent: #0a6cff;
+  --accent-soft: rgba(10,108,255,.12);
+  --good: #1f9d55;
+  --warn: #c76a00;
+  --bad: #d23b2f;
+
+  /* macOS panel tokens */
+  --panel: rgba(244,245,245,.86);
+  --panel-solid: #f3f4f4;
+  --panel-ink: #1d1d1f;
+  --panel-ink-2: #6e6e73;
+  --panel-ink-3: #a1a1a6;
+  --panel-line: rgba(0,0,0,.09);
+  --panel-row-hover: rgba(0,0,0,.04);
+  --control: #ffffff;
+  --control-ink: #1d1d1f;
+  --control-border: rgba(0,0,0,.12);
+  --seg-bg: rgba(0,0,0,.06);
+  --menubar: rgba(246,246,246,.62);
+  --menubar-ink: #111;
+  --sky-1: #c4d5d1; --sky-2: #e6d9c2; --hill-1: #7d9a92; --hill-2: #5d7c76; --hill-3: #3f5d59;
+
+  --f-display: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --f-mac: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Segoe UI", Roboto, Arial, sans-serif;
+  --f-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #121615; --ink: #e8eeec; --ink-2: #9aa7a3; --line: #2a3331; --card: #1a201f;
+  --accent: #3b8dff; --accent-soft: rgba(59,141,255,.18); --good: #3ccf7a; --warn: #ff9f2e; --bad: #ff6257;
+  --panel: rgba(38,38,40,.84); --panel-solid: #29292b; --panel-ink: #f5f5f7; --panel-ink-2: #a1a1a6; --panel-ink-3: #6e6e73;
+  --panel-line: rgba(255,255,255,.09); --panel-row-hover: rgba(255,255,255,.05);
+  --control: #4a4a4d; --control-ink: #f5f5f7; --control-border: rgba(255,255,255,.08); --seg-bg: rgba(255,255,255,.08);
+  --menubar: rgba(26,30,32,.55); --menubar-ink: #f2f2f2;
+  --sky-1: #1b2a33; --sky-2: #3a3542; --hill-1: #2b3d42; --hill-2: #1f2f33; --hill-3: #142124;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #121615; --ink: #e8eeec; --ink-2: #9aa7a3; --line: #2a3331; --card: #1a201f;
+  --accent: #3b8dff; --accent-soft: rgba(59,141,255,.18); --good: #3ccf7a; --warn: #ff9f2e; --bad: #ff6257;
+  --panel: rgba(38,38,40,.84); --panel-solid: #29292b; --panel-ink: #f5f5f7; --panel-ink-2: #a1a1a6; --panel-ink-3: #6e6e73;
+  --panel-line: rgba(255,255,255,.09); --panel-row-hover: rgba(255,255,255,.05);
+  --control: #4a4a4d; --control-ink: #f5f5f7; --control-border: rgba(255,255,255,.08); --seg-bg: rgba(255,255,255,.08);
+  --menubar: rgba(26,30,32,.55); --menubar-ink: #f2f2f2;
+  --sky-1: #1b2a33; --sky-2: #3a3542; --hill-1: #2b3d42; --hill-2: #1f2f33; --hill-3: #142124;
+  color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--ink); font-family: var(--f-display); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 56px; display: grid; gap: 28px; }
+header.intro { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; }
+header.intro h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.05; margin: 0; letter-spacing: -.02em; font-weight: 700; text-wrap: balance; display: flex; align-items: center; gap: 10px; }
+header.intro h1 svg { width: .9em; height: .9em; color: var(--accent); }
+header.intro p { margin: 6px 0 0; color: var(--ink-2); max-width: 60ch; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); background: var(--card); white-space: nowrap; }
+.chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); display: inline-block; }
+
+/* ---------- desktop stage ---------- */
+.stage { position: relative; height: 680px; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: linear-gradient(180deg, var(--sky-1), var(--sky-2) 70%); isolation: isolate; }
+.stage svg.hills { position: absolute; inset: auto 0 0 0; width: 100%; height: 62%; z-index: -1; }
+.menubar { position: absolute; inset: 0 0 auto 0; height: 28px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; background: var(--menubar); backdrop-filter: blur(24px) saturate(1.6); -webkit-backdrop-filter: blur(24px) saturate(1.6); color: var(--menubar-ink); font-family: var(--f-mac); font-size: 13px; z-index: 5; }
+.mb-left, .mb-right { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.mb-left span { padding: 2px 8px; white-space: nowrap; }
+.mb-left span.app { font-weight: 700; }
+.mb-item { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border-radius: 5px; border: 0; background: none; color: inherit; font: inherit; white-space: nowrap; }
+.mb-item svg { width: 16px; height: 16px; }
+button.mb-item { cursor: pointer; }
+button.mb-item:hover, button.mb-item.open { background: rgba(127,127,127,.25); }
+button.mb-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mb-sweep { font-variant-numeric: tabular-nums; }
+.mb-clock { padding-left: 8px; font-variant-numeric: tabular-nums; }
+.hint { position: absolute; right: 18px; top: 44px; font-family: var(--f-mac); font-size: 13px; color: var(--panel-ink); background: var(--panel); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 8px 12px; border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.18); }
+.relaunch { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); }
+
+/* ---------- the Sweep panel (mirrors RootView: 400x580) ---------- */
+.panel { position: absolute; top: 34px; width: min(400px, calc(100% - 16px)); height: 580px; display: flex; flex-direction: column; background: var(--panel); backdrop-filter: blur(30px) saturate(1.8); -webkit-backdrop-filter: blur(30px) saturate(1.8); color: var(--panel-ink); border-radius: 12px; border: 1px solid var(--panel-line); box-shadow: 0 0 0 .5px rgba(0,0,0,.25), 0 18px 50px rgba(0,0,0,.28); font-family: var(--f-mac); font-size: 13px; line-height: 1.35; overflow: hidden; z-index: 6; }
+.panel button { font-family: inherit; }
+.p-head { padding: 14px 14px 10px; display: grid; gap: 8px; }
+.p-title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.p-title b { font-size: 13px; display: inline-flex; align-items: center; gap: 5px; }
+.p-title b svg { width: 14px; height: 14px; color: var(--accent); transform: translateY(2px); }
+.p-title small { color: var(--panel-ink-2); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.disk { display: grid; gap: 4px; }
+.bar { height: 5px; border-radius: 3px; background: var(--seg-bg); overflow: hidden; }
+.bar > i { display: block; height: 100%; border-radius: 3px; background: var(--accent); transition: width .5s ease; }
+.disk-meta { display: flex; justify-content: space-between; gap: 8px; color: var(--panel-ink-2); font-size: 11px; font-variant-numeric: tabular-nums; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; margin: 0 14px 10px; padding: 2px; border-radius: 7px; background: var(--seg-bg); }
+.seg button { border: 0; background: none; color: var(--panel-ink); font-size: 12px; padding: 3px 0; border-radius: 5px; cursor: pointer; }
+.seg button[aria-selected="true"] { background: var(--control); box-shadow: 0 1px 2px rgba(0,0,0,.15); font-weight: 500; }
+.hr { height: 1px; background: var(--panel-line); flex: none; }
+.p-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.p-foot { display: flex; align-items: center; gap: 8px; padding: 8px 14px; min-height: 40px; }
+.status { color: var(--panel-ink-2); font-size: 11px; flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.status span { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+.btn { appearance: none; border: .5px solid var(--control-border); background: var(--control); color: var(--control-ink); font-size: 13px; padding: 3px 11px; border-radius: 6px; cursor: pointer; box-shadow: 0 .5px 1px rgba(0,0,0,.12); white-space: nowrap; }
+.btn:hover { filter: brightness(.97); }
+.btn:focus-visible, .seg button:focus-visible, .icon-btn:focus-visible, .cb:focus-visible, .tile:focus-visible, .switch:focus-visible, .row-toggle:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 1px; box-shadow: 0 0 0 1px var(--accent); }
+.btn.primary { background: var(--accent); color: #fff; border-color: transparent; }
+.btn.large { font-size: 14px; padding: 6px 18px; border-radius: 8px; min-width: 140px; }
+.btn.small { font-size: 11px; padding: 2px 8px; }
+.btn[disabled] { opacity: .45; cursor: default; filter: none; }
+.icon-btn { border: 0; background: none; color: var(--panel-ink-3); padding: 0; cursor: pointer; display: inline-flex; }
+.icon-btn svg { width: 14px; height: 14px; }
+
+.center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; text-align: center; }
+.center .big { width: 46px; height: 46px; color: var(--accent); }
+.center h3 { margin: 0; font-size: 16px; font-weight: 600; }
+.center p { margin: 0; color: var(--panel-ink-2); max-width: 300px; }
+.progress { width: 240px; height: 6px; border-radius: 3px; background: var(--seg-bg); overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width .12s linear; }
+.mono { font-family: var(--f-mono); font-size: 11px; color: var(--panel-ink-2); max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.sec-h { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 6px; padding: 8px 14px 4px; font-size: 11px; font-weight: 600; color: var(--panel-ink-2); background: var(--panel-solid); }
+.sec-h svg { width: 13px; height: 13px; }
+.rule { border-bottom: 1px solid var(--panel-line); }
+.rule-head { display: grid; grid-template-columns: 14px 20px 1fr auto; gap: 6px; align-items: start; padding: 8px 14px; cursor: pointer; }
+.rule-head:hover { background: var(--panel-row-hover); }
+.chev { width: 12px; height: 12px; color: var(--panel-ink-3); margin-top: 3px; transition: transform .15s ease; }
+.rule.open .chev { transform: rotate(90deg); }
+.rule-name { font-weight: 500; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.rule-sum { color: var(--panel-ink-2); font-size: 11px; margin-top: 1px; }
+.rule-detail { color: var(--panel-ink-3); font-size: 10.5px; margin-top: 2px; }
+.size { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tag { font-size: 10px; font-weight: 500; padding: 0 5px; border-radius: 999px; line-height: 15px; white-space: nowrap; }
+.tag.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 15%, transparent); }
+.tag.info { color: var(--accent); background: var(--accent-soft); }
+.tag.muted { color: var(--panel-ink-2); background: var(--seg-bg); }
+.items { padding: 0 0 6px 34px; }
+.item { display: grid; grid-template-columns: 20px 18px 1fr auto; gap: 7px; align-items: center; padding: 4px 14px 4px 0; }
+.item-title { display: flex; gap: 4px; align-items: center; min-width: 0; }
+.item-title span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-sub { color: var(--panel-ink-2); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item .size { color: var(--panel-ink-2); font-size: 12px; }
+.cb { border: 0; background: none; padding: 0; cursor: pointer; display: inline-flex; color: var(--panel-ink-3); border-radius: 4px; }
+.cb svg { width: 17px; height: 17px; }
+.cb.on, .cb.some { color: var(--accent); }
+.ico { width: 18px; height: 18px; border-radius: 4.5px; display: grid; place-items: center; color: #fff; font-size: 10px; font-weight: 700; flex: none; }
+.ico.folder { background: none; color: #4aa3e8; }
+.ico.folder svg { width: 18px; height: 18px; }
+.ico.lg { width: 30px; height: 30px; border-radius: 7px; font-size: 14px; }
+.action-bar { padding: 12px 14px; display: flex; align-items: center; gap: 8px; }
+.action-bar .sum { flex: 1; min-width: 0; }
+.action-bar .sum b { display: block; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.action-bar .sum small { color: var(--panel-ink-2); font-size: 11px; }
+.confirm { padding: 12px 14px; display: grid; gap: 8px; }
+.confirm .row { display: flex; justify-content: flex-end; gap: 8px; }
+.banner { margin: 10px 12px; padding: 10px; border-radius: 8px; background: color-mix(in srgb, var(--warn) 9%, transparent); display: grid; grid-template-columns: 18px 1fr; gap: 8px; text-align: left; }
+.banner svg { width: 18px; height: 18px; color: var(--warn); }
+.banner b { font-size: 12px; }
+.banner p { margin: 2px 0 6px; color: var(--panel-ink-2); font-size: 11px; }
+.outcome { display: grid; gap: 4px; color: var(--panel-ink-2); max-width: 320px; }
+.outcome strong { color: var(--panel-ink); font-size: 17px; font-weight: 600; }
+.row-btns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+
+/* apps tab */
+.toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; }
+.toolbar label { color: var(--panel-ink-2); font-size: 12px; }
+.toolbar select { font: inherit; font-size: 12px; padding: 2px 4px; border-radius: 5px; border: .5px solid var(--control-border); background: var(--control); color: var(--control-ink); }
+.toolbar .spacer { flex: 1; }
+.app-row { display: grid; grid-template-columns: 12px 30px 1fr auto; gap: 8px; align-items: center; padding: 7px 14px; cursor: pointer; }
+.app-row:hover { background: var(--panel-row-hover); }
+.app-row .meta { color: var(--panel-ink-2); font-size: 11px; }
+.app-open { padding: 4px 14px 10px 50px; display: grid; gap: 6px; }
+.rel { display: grid; grid-template-columns: 20px 1fr auto; gap: 6px; align-items: center; font-size: 12px; }
+.rel .item-sub { font-size: 10.5px; }
+.app-actions { display: flex; justify-content: flex-end; gap: 8px; align-items: center; flex-wrap: wrap; }
+.app-actions small { color: var(--panel-ink-2); font-size: 11px; flex: 1; min-width: 140px; }
+.note { padding: 8px 14px 14px; color: var(--panel-ink-3); font-size: 11px; }
+
+/* profile tab */
+.pad { padding: 12px 14px; display: grid; gap: 14px; }
+.group-label { font-size: 11px; font-weight: 600; color: var(--panel-ink-2); margin-bottom: -6px; }
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+.tile { text-align: left; border: 1px solid var(--panel-line); background: var(--control); color: var(--control-ink); border-radius: 9px; padding: 9px 10px; display: grid; grid-template-columns: 22px 1fr 16px; gap: 6px; align-items: start; cursor: pointer; font-size: 12px; }
+.tile svg.pi { width: 20px; height: 20px; color: var(--panel-ink-2); }
+.tile small { display: block; color: var(--panel-ink-2); font-size: 10.5px; margin-top: 1px; }
+.tile .tick { width: 16px; height: 16px; color: transparent; }
+.tile[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--control)); }
+.tile[aria-pressed="true"] svg.pi, .tile[aria-pressed="true"] .tick { color: var(--accent); }
+.suggest { border-radius: 9px; padding: 9px 10px; background: var(--accent-soft); display: grid; gap: 4px; font-size: 12px; }
+.suggest ul { margin: 0; padding-left: 16px; color: var(--panel-ink-2); font-size: 11px; }
+.suggest .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.settings { border-radius: 9px; background: var(--control); border: 1px solid var(--panel-line); }
+.set-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; font-size: 12px; }
+.set-row + .set-row { border-top: 1px solid var(--panel-line); }
+.set-row .grow { flex: 1; min-width: 0; }
+.set-row small { display: block; color: var(--panel-ink-2); font-size: 10.5px; }
+.switch { width: 30px; height: 18px; border-radius: 9px; background: var(--seg-bg); border: 0; position: relative; cursor: pointer; flex: none; transition: background .15s; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: transform .15s; }
+.switch[aria-checked="true"] { background: var(--good); }
+.switch[aria-checked="true"]::after { transform: translateX(12px); }
+.ok { color: var(--good); display: inline-flex; align-items: center; gap: 4px; font-weight: 500; }
+.ok svg { width: 13px; height: 13px; }
+.hist { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.hist small { color: var(--panel-ink-2); font-size: 10.5px; display: block; }
+.version { color: var(--panel-ink-3); font-size: 11px; text-align: center; }
+
+/* onboarding */
+.onb { flex: 1; display: flex; flex-direction: column; padding: 22px 18px 16px; gap: 14px; min-height: 0; }
+.onb h2 { margin: 0; font-size: 18px; font-weight: 600; text-wrap: balance; }
+.onb p { margin: 0; color: var(--panel-ink-2); }
+.onb .steps { display: flex; gap: 5px; }
+.onb .steps i { width: 18px; height: 4px; border-radius: 2px; background: var(--seg-bg); }
+.onb .steps i.on { background: var(--accent); }
+.onb .foot { margin-top: auto; display: flex; justify-content: flex-end; gap: 8px; }
+.fda-steps { margin: 0; padding-left: 18px; color: var(--panel-ink-2); display: grid; gap: 4px; }
+
+/* ---------- below the stage ---------- */
+.below { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 28px; align-items: start; }
+.below h2 { font-size: 19px; margin: 0 0 4px; letter-spacing: -.01em; text-wrap: balance; }
+.below .lede { color: var(--ink-2); margin: 0 0 14px; font-size: 14px; }
+.try { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.try li { display: grid; grid-template-columns: 26px 1fr; gap: 10px; font-size: 14px; }
+.try li > span { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+.try li svg { width: 15px; height: 15px; }
+.try b { font-weight: 600; }
+.try p { margin: 2px 0 0; color: var(--ink-2); }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 7px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); font-weight: 600; background: color-mix(in srgb, var(--line) 30%, var(--card)); position: sticky; top: 0; }
+td.num { font-variant-numeric: tabular-nums; }
+tr:last-child td { border-bottom: 0; }
+tr.cat td { font-weight: 600; font-size: 12px; color: var(--ink-2); background: color-mix(in srgb, var(--line) 18%, var(--card)); }
+.mode { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; }
+.mode.aggressive { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+.mode.standard { color: var(--accent); background: var(--accent-soft); }
+.mode.careful { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.mode.protect { color: var(--bad); background: color-mix(in srgb, var(--bad) 13%, transparent); }
+.yes { color: var(--good); font-weight: 600; }
+.no { color: var(--ink-2); }
+.table-scroll { max-height: 520px; overflow-y: auto; }
+
+@media (max-width: 820px) {
+  .below { grid-template-columns: minmax(0, 1fr); }
+  .mb-left span:not(.app) { display: none; }
+}
+@media (max-width: 480px) {
+  .mb-hide-sm { display: none !important; }
+  .stage { height: 660px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <div>
+      <h1><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 2.5l1.6 4.9a3 3 0 0 0 1.9 1.9l4.9 1.6-4.9 1.6a3 3 0 0 0-1.9 1.9L10 19.3l-1.6-4.9a3 3 0 0 0-1.9-1.9L1.6 10.9l4.9-1.6a3 3 0 0 0 1.9-1.9z"/><path d="M19 13.5l.8 2.2a1.5 1.5 0 0 0 .9.9l2.2.8-2.2.8a1.5 1.5 0 0 0-.9.9L19 21.3l-.8-2.2a1.5 1.5 0 0 0-.9-.9L15 17.4l2.2-.8a1.5 1.5 0 0 0 .9-.9z"/></svg>Sweep</h1>
+      <p>A menu bar storage cleaner that tunes itself to what you use your Mac for. This is a working prototype of the native app's panel, running on sample data.</p>
+    </div>
+    <span class="chip"><i></i>Simulation · no real files</span>
+  </header>
+
+  <section class="stage" id="stage" aria-label="Simulated Mac desktop">
+    <svg class="hills" viewBox="0 0 1200 420" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0 210 C 180 120, 330 170, 470 150 S 760 60, 930 120 S 1120 150, 1200 110 L1200 420 L0 420 Z" fill="var(--hill-1)"/>
+      <path d="M0 290 C 160 230, 300 270, 520 240 S 820 200, 1000 250 S 1150 260, 1200 240 L1200 420 L0 420 Z" fill="var(--hill-2)"/>
+      <path d="M0 360 C 220 320, 420 350, 640 330 S 980 300, 1200 340 L1200 420 L0 420 Z" fill="var(--hill-3)"/>
+    </svg>
+    <div class="menubar">
+      <div class="mb-left"><span class="app">Finder</span><span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Window</span><span>Help</span></div>
+      <div class="mb-right" id="mbRight"></div>
+    </div>
+    <div id="panelHost"></div>
+  </section>
+
+  <section class="below">
+    <div>
+      <h2>Things to try</h2>
+      <p class="lede">The panel behaves like the native app. Everything resets when you reload.</p>
+      <ul class="try">
+        <li><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h10M4 17h6"/></svg></span><div><b>Review the scan</b><p>Expand a rule to see each folder. Items an open app is using, or that are marked Review, start unchecked.</p></div></li>
+        <li><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></span><div><b>Switch profiles</b><p>In the Profile tab, add Gaming or remove Development, then scan again. The table on the right updates as you go.</p></div></li>
+        <li><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14l-5-5 5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></span><div><b>Clean, then undo</b><p>Rebuildable caches are deleted outright; everything else goes to the Trash and can be put back.</p></div></li>
+        <li><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 12h6"/></svg></span><div><b>Remove an unused app</b><p>The Apps tab lists apps not opened in months, with their support files, plus data left behind by apps you already deleted.</p></div></li>
+      </ul>
+    </div>
+    <div>
+      <h2>How your profiles shape each rule</h2>
+      <p class="lede" id="policyLede"></p>
+      <div class="table-wrap"><div class="table-scroll"><table id="policyTable"></table></div></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+// ---------- icons ----------
+const I = {
+  sparkles: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 2.5l1.6 4.9a3 3 0 0 0 1.9 1.9l4.9 1.6-4.9 1.6a3 3 0 0 0-1.9 1.9L10 19.3l-1.6-4.9a3 3 0 0 0-1.9-1.9L1.6 10.9l4.9-1.6a3 3 0 0 0 1.9-1.9z"/><path d="M19 13.5l.8 2.2a1.5 1.5 0 0 0 .9.9l2.2.8-2.2.8a1.5 1.5 0 0 0-.9.9L19 21.3l-.8-2.2a1.5 1.5 0 0 0-.9-.9L15 17.4l2.2-.8a1.5 1.5 0 0 0 .9-.9z"/></svg>',
+  wifi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.7 16a5 5 0 0 1 6.6 0"/><circle cx="12" cy="19.2" r="1.2" fill="currentColor" stroke="none"/></svg>',
+  battery: '<svg viewBox="0 0 28 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="7" width="21" height="10" rx="3"/><rect x="4" y="9" width="14" height="6" rx="1.5" fill="currentColor" stroke="none"/><path d="M25 10.5v3" stroke-linecap="round"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg>',
+  control: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="6" rx="3"/><circle cx="17.5" cy="8" r="1.6" fill="currentColor"/><rect x="3" y="13" width="18" height="6" rx="3"/><circle cx="6.5" cy="16" r="1.6" fill="currentColor"/></svg>',
+  chev: '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>',
+  cbOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/></svg>',
+  cbOn: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4.5" fill="currentColor"/><path d="M7.5 12.3l3 3 6-6.4" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  cbSome: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4.5" fill="currentColor"/><path d="M8 12h8" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>',
+  folder: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 7.2A2.2 2.2 0 0 1 4.7 5h4.1l2 2h8.5a2.2 2.2 0 0 1 2.2 2.2v8.6a2.2 2.2 0 0 1-2.2 2.2H4.7a2.2 2.2 0 0 1-2.2-2.2z" fill="currentColor"/><path d="M2.5 9.5h19" stroke="rgba(255,255,255,.35)" stroke-width="1"/></svg>',
+  doc: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.5h8l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-17a1 1 0 0 1 1-1z" fill="#e9eef3" stroke="#9fb0c0"/><path d="M14 2.5v5h5" fill="none" stroke="#9fb0c0"/></svg>',
+  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6z"/><rect x="9.2" y="11" width="5.6" height="4.6" rx="1"/><path d="M10.4 11V9.6a1.6 1.6 0 0 1 3.2 0V11"/></svg>',
+  checkCircle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M7.5 12.3l3 3 6-6.4"/></svg>',
+  checkSeal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5l2.4 1.7 2.9-.2.9 2.8 2.4 1.7-1 2.7 1 2.7-2.4 1.7-.9 2.8-2.9-.2L12 21.5l-2.4-1.7-2.9.2-.9-2.8-2.4-1.7 1-2.7-1-2.7 2.4-1.7.9-2.8 2.9.2z"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8"/></svg>',
+  x: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="var(--panel-solid)" stroke-width="2" stroke-linecap="round"/></svg>',
+  tick: '<svg class="tick" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M7.5 12.3l3 3 6-6.4" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  // profile + category symbols
+  house: '<svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10.5L12 3.5l8.5 7V20a1 1 0 0 1-1 1h-5v-6h-5v6h-5a1 1 0 0 1-1-1z"/></svg>',
+  docText: '<svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M6 2.5h8l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-17a1 1 0 0 1 1-1z"/><path d="M14 2.5v5h5M8.5 12.5h7M8.5 16h7"/></svg>',
+  code: '<svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 4.5l-3 15"/></svg>',
+  aperture: '<svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3l3.5 8M21 12l-8.5 1.5M16.5 19.8L11 13M7.5 19.8L10 11.5M3 12l8.5-1.5M7.5 4.2L13 11"/></svg>',
+  gamepad: '<svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10a5 5 0 0 1 4.8 6.3l-.9 3.4a2.3 2.3 0 0 1-3.9 1L15 15.5H9l-2 2.2a2.3 2.3 0 0 1-3.9-1l-.9-3.4A5 5 0 0 1 7 7z"/><path d="M8 10v3M6.5 11.5h3"/><circle cx="15.5" cy="10.5" r=".6" fill="currentColor"/><circle cx="17.5" cy="12.5" r=".6" fill="currentColor"/></svg>',
+  gear: '<svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>',
+  download: '<svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v8M8.5 12.5l3.5 3.5 3.5-3.5"/></svg>',
+};
+
+// ---------- model (ported from SweepCore) ----------
+const PROFILES = [
+  { id: "general",   title: "Everyday Use",    summary: "Browsing, email, photos and media.", focus: null,        threshold: 90,  icon: I.house },
+  { id: "office",    title: "Office & School", summary: "Documents, meetings and chat apps.", focus: null,        threshold: 90,  icon: I.docText },
+  { id: "developer", title: "Development",     summary: "Xcode, editors, package managers.",  focus: "developer", threshold: 180, icon: I.code },
+  { id: "creative",  title: "Creative Work",   summary: "Video, photo and audio editing.",    focus: "creative",  threshold: 180, icon: I.aperture },
+  { id: "gamer",     title: "Gaming",          summary: "Steam and other game launchers.",    focus: "gaming",    threshold: 180, icon: I.gamepad },
+];
+const PROFILE = Object.fromEntries(PROFILES.map(p => [p.id, p]));
+const CATEGORIES = [
+  { id: "system", title: "System", icon: I.gear },
+  { id: "downloads", title: "Downloads", icon: I.download },
+  { id: "developer", title: "Development", icon: I.code },
+  { id: "creative", title: "Creative", icon: I.aperture },
+  { id: "gaming", title: "Gaming", icon: I.gamepad },
+];
+const RANK = { aggressive: 0, standard: 1, careful: 2, protect: 3 };
+const COST = { low: 0, medium: 1, high: 2 };
+const GB = 1e9, MB = 1e6;
+
+// Apps are drawn as colored squircles with an initial: [bundle id] -> [name, color]
+const APPS = {
+  "com.spotify.client": ["Spotify", "#1db954"], "com.figma.Desktop": ["Figma", "#a259ff"], "us.zoom.xos": ["zoom.us", "#2d8cff"],
+  "notion.id": ["Notion", "#37352f"], "com.google.Chrome": ["Google Chrome", "#e8a400"], "org.mozilla.firefox": ["Firefox", "#e66000"],
+  "com.tinyspeck.slackmacgap": ["Slack", "#611f69"], "com.hnc.Discord": ["Discord", "#5865f2"], "com.apple.dt.Xcode": ["Xcode", "#147efb"],
+  "com.microsoft.VSCode": ["Visual Studio Code", "#0e7ad3"], "com.valvesoftware.steam": ["Steam", "#1b2838"], "com.adobe.PremierePro": ["Premiere Pro", "#4b2fa3"],
+  "com.apple.FinalCut": ["Final Cut Pro", "#3a3a3c"], "com.adobe.LightroomClassic": ["Lightroom Classic", "#0d6db3"],
+};
+const RUNNING = new Set(["com.tinyspeck.slackmacgap", "notion.id", "com.apple.dt.Xcode", "com.docker.docker"]);
+
+function rule(id, name, category, safety, cost, minAge, regenerates, summary, items, extra = {}) {
+  return { id, name, category, safety, cost, minAge, regenerates, summary, items, modes: extra.modes || null, deletion: extra.deletion || "automatic" };
+}
+function it(name, loc, bytes, age, owner) { return { name, loc, bytes, age, owner }; }
+
+const RULES = [
+  rule("user-caches", "App caches", "system", "safe", "low", 0, true, "Temporary files apps rebuild on their own. Caches of running apps are left unchecked.", [
+    it("com.spotify.client", "~/Library/Caches", 1.84*GB, 1, "com.spotify.client"), it("com.figma.Desktop", "~/Library/Caches", 612*MB, 3, "com.figma.Desktop"),
+    it("notion.id", "~/Library/Caches", 188*MB, 0, "notion.id"), it("us.zoom.xos", "~/Library/Caches", 241*MB, 12, "us.zoom.xos"),
+    it("com.microsoft.VSCode.ShipIt", "~/Library/Caches", 96*MB, 41, "com.microsoft.VSCode")]),
+  rule("user-logs", "Log files", "system", "safe", "low", 7, true, "Diagnostic logs written by apps. Only logs older than the age limit are included.", [
+    it("DiagnosticReports", "~/Library/Logs", 214*MB, 22), it("zoom.us", "~/Library/Logs", 88*MB, 15, "us.zoom.xos"), it("JetBrains", "~/Library/Logs", 61*MB, 90), it("Steam", "~/Library/Logs", 12*MB, 2)]),
+  rule("browser-caches", "Browser caches", "system", "safe", "low", 0, true, "Website files cached by Chrome, Firefox, Brave and Edge. Sign-ins, history and bookmarks are not touched.", [
+    it("Google Chrome", "~/Library/Caches/Google/Chrome", 1.22*GB, 0, "com.google.Chrome"), it("Firefox", "~/Library/Caches/Firefox/Profiles", 640*MB, 4, "org.mozilla.firefox")]),
+  rule("chat-app-caches", "Chat app caches", "system", "safe", "low", 0, true, "Web caches kept by Slack and Discord. They refill as you use the apps.", [
+    it("Slack", "~/Library/Application Support/Slack/Cache", 890*MB, 0, "com.tinyspeck.slackmacgap"), it("Discord", "~/Library/Application Support/discord/Cache", 420*MB, 6, "com.hnc.Discord")]),
+  rule("trash", "Trash", "system", "review", "low", 0, false, "Items already in the Trash. Removing them is permanent.", [
+    it("Screen Recording 2026-08-02.mov", "~/.Trash", 1.92*GB, 85), it("old-laptop-migration.zip", "~/.Trash", 1.24*GB, 40), it("Untitled design (3).png", "~/.Trash", 4.2*MB, 9)], { deletion: "permanent" }),
+  rule("ios-backups", "iPhone & iPad backups", "system", "review", "high", 30, false, "Local device backups made by Finder. Make sure you have a newer or iCloud backup before removing one.", [
+    it("iPhone 13 · March 2025", "~/Library/Application Support/MobileSync/Backup", 38.2*GB, 580)]),
+  rule("ios-firmware", "iOS software updates", "system", "safe", "medium", 0, true, "Downloaded iPhone and iPad system updates (.ipsw) that are no longer needed once installed.", [
+    it("iPhone15,2_18.6_Restore.ipsw", "~/Library/iTunes/iPhone Software Updates", 7.9*GB, 120)]),
+  rule("mail-downloads", "Mail attachment copies", "system", "safe", "low", 14, true, "Copies of attachments you opened in Mail. The originals stay in your mailbox.", [
+    it("Mail Downloads", "~/Library/Containers/com.apple.mail/Data/Library/Mail Downloads", 312*MB, 33)]),
+  rule("old-installers", "Old installers", "downloads", "safe", "medium", 14, false, "Disk images and installer packages in Downloads that have most likely been installed already.", [
+    it("Docker.dmg", "~/Downloads", 610*MB, 120), it("Figma-124.6.dmg", "~/Downloads", 210*MB, 20), it("zoomusInstallerFull.pkg", "~/Downloads", 98*MB, 40), it("Xcode_26.1.xip", "~/Downloads", 3.4*GB, 9)]),
+  rule("old-downloads", "Forgotten downloads", "downloads", "review", "high", 90, false, "Files in Downloads you haven't touched in months. Review before removing.", [
+    it("Wedding photos export.zip", "~/Downloads", 4.2*GB, 210), it("dataset-2024-full.csv", "~/Downloads", 1.1*GB, 300), it("lecture-recordings", "~/Downloads", 2.6*GB, 150)]),
+  rule("xcode-derived-data", "Xcode build data", "developer", "safe", "medium", 14, true, "DerivedData for projects you haven't built recently. Xcode rebuilds it on the next build.", [
+    it("Sweep-fhqzbxwq", "~/Library/Developer/Xcode/DerivedData", 2.2*GB, 1, "com.apple.dt.Xcode"), it("Weather-dkqzlsoe", "~/Library/Developer/Xcode/DerivedData", 4.1*GB, 40, "com.apple.dt.Xcode"),
+    it("PuzzleGame-abemrtql", "~/Library/Developer/Xcode/DerivedData", 6.3*GB, 200, "com.apple.dt.Xcode"), it("Habits-cnrgqtwb", "~/Library/Developer/Xcode/DerivedData", 1.6*GB, 18, "com.apple.dt.Xcode")], { modes: { developer: "standard" } }),
+  rule("xcode-caches", "Xcode caches", "developer", "safe", "low", 0, true, "Xcode's own cache folder and SwiftUI preview data.", [
+    it("com.apple.dt.Xcode", "~/Library/Caches", 1.1*GB, 1, "com.apple.dt.Xcode"), it("Previews", "~/Library/Developer/Xcode/UserData", 760*MB, 6, "com.apple.dt.Xcode")]),
+  rule("xcode-device-support", "Old device support files", "developer", "safe", "medium", 90, true, "Debug symbols for iOS, watchOS and tvOS versions you haven't connected a device with recently. Xcode copies them again if needed.", [
+    it("iPhone15,2 17.5 (21F90)", "~/Library/Developer/Xcode/iOS DeviceSupport", 4.8*GB, 300), it("iPhone15,2 18.2 (22C152)", "~/Library/Developer/Xcode/iOS DeviceSupport", 5.1*GB, 120), it("iPhone15,2 26.0.1 (23A355)", "~/Library/Developer/Xcode/iOS DeviceSupport", 5.3*GB, 3)], { modes: { developer: "standard" } }),
+  rule("xcode-archives", "Xcode archives", "developer", "review", "high", 180, false, "Old app archives. You need them to symbolicate crash reports from those builds, so review first.", [
+    it("2025-01-14", "~/Library/Developer/Xcode/Archives", 1.8*GB, 650), it("2025-06-02", "~/Library/Developer/Xcode/Archives", 2.1*GB, 510)]),
+  rule("simulator-caches", "Simulator caches", "developer", "safe", "low", 0, true, "Shared caches built by the iOS Simulator.", [
+    it("com.apple.CoreSimulator.SimulatorTrampoline", "~/Library/Developer/CoreSimulator/Caches", 2.4*GB, 2)]),
+  rule("package-caches", "Package manager caches", "developer", "safe", "medium", 0, true, "Download caches for npm, Yarn, Bun, pip, uv, CocoaPods, Swift packages, Homebrew, Go and Cargo. Packages are downloaded again when needed.", [
+    it("_cacache", "~/.npm", 2.1*GB, 1), it("Homebrew", "~/Library/Caches", 1.6*GB, 8), it("CocoaPods", "~/Library/Caches", 900*MB, 60), it("pip", "~/Library/Caches", 410*MB, 25)]),
+  rule("jvm-caches", "Gradle & Maven caches", "developer", "safe", "high", 0, true, "Downloaded Java/Kotlin dependencies and build caches. Re-downloading them can take a while.", [
+    it("caches", "~/.gradle", 5.2*GB, 33), it("repository", "~/.m2", 1.3*GB, 140)]),
+  rule("ide-caches", "Editor caches", "developer", "safe", "low", 0, true, "Caches from VS Code, Cursor and old JetBrains IDE versions.", [
+    it("CachedData", "~/Library/Application Support/Code", 740*MB, 2, "com.microsoft.VSCode")]),
+  rule("jetbrains-caches", "JetBrains IDE caches", "developer", "safe", "medium", 30, true, "Index caches for JetBrains IDE versions you haven't opened recently.", [
+    it("IntelliJIdea2024.3", "~/Library/Caches/JetBrains", 2.7*GB, 240)]),
+  rule("stale-node-modules", "node_modules in idle projects", "developer", "safe", "medium", 60, true, "Installed JavaScript dependencies in projects you haven't touched in a while. Run npm install to restore.", [
+    it("hackathon-2024/node_modules", "~/Code", 1.2*GB, 400), it("portfolio-site/node_modules", "~/Code", 640*MB, 140), it("api-server/node_modules", "~/Code", 820*MB, 75), it("landing-page/node_modules", "~/Code", 300*MB, 35)], { modes: { developer: "standard" } }),
+  rule("stale-rust-targets", "Rust build folders in idle projects", "developer", "safe", "medium", 60, true, "Cargo target folders in projects you haven't touched in a while. They are rebuilt by cargo build.", [
+    it("ray-tracer/target", "~/Code", 3.8*GB, 95)], { modes: { developer: "standard" } }),
+  rule("final-cut-render-files", "Final Cut Pro render files", "creative", "safe", "high", 30, true, "Rendered previews inside Final Cut libraries you haven't edited recently. Final Cut re-renders them when needed.", [
+    it("Iceland Trip.fcpbundle · Render Files", "~/Movies", 18.4*GB, 75, "com.apple.FinalCut"), it("Client Promo.fcpbundle · Render Files", "~/Movies", 9.1*GB, 10, "com.apple.FinalCut")]),
+  rule("adobe-media-cache", "Adobe media caches", "creative", "safe", "medium", 30, true, "Media Cache, peak files and Camera Raw cache used by Premiere Pro, After Effects, Audition and Photoshop.", [
+    it("Media Cache Files", "~/Library/Application Support/Adobe/Common", 6.2*GB, 45, "com.adobe.PremierePro"), it("CameraRaw Cache", "~/Library/Caches/Adobe Camera Raw 2", 1.1*GB, 20)]),
+  rule("lightroom-previews", "Lightroom Classic previews", "creative", "safe", "high", 60, true, "Preview caches for Lightroom catalogs you haven't opened recently. Smart Previews are kept.", [
+    it("Lightroom Catalog Previews.lrdata", "~/Pictures/Lightroom", 12.3*GB, 70, "com.adobe.LightroomClassic")]),
+  rule("steam-shader-cache", "Steam shader cache", "gaming", "safe", "medium", 30, true, "Pre-compiled graphics shaders. Removing them causes stutter the next time each game is played.", [
+    it("shadercache", "~/Library/Application Support/Steam/steamapps", 3.4*GB, 40, "com.valvesoftware.steam")], { modes: { gamer: "protect" } }),
+  rule("steam-leftovers", "Steam temporary files", "gaming", "safe", "low", 7, true, "Unfinished downloads, temp files and Steam's web cache.", [
+    it("downloading", "~/Library/Application Support/Steam/steamapps", 820*MB, 10, "com.valvesoftware.steam")]),
+];
+const RULE = Object.fromEntries(RULES.map(r => [r.id, r]));
+RULES.forEach(r => r.items.forEach((x, i) => { x.id = r.id + ":" + i; x.ruleId = r.id; }));
+
+function defaultMode(profile, category) {
+  if (category === "system" || category === "downloads") return "standard";
+  return PROFILE[profile].focus === category ? "careful" : "aggressive";
+}
+// PolicyResolver.resolve: the most conservative profile wins.
+function resolve(r, profiles) {
+  const active = profiles.length ? profiles : ["general"];
+  let mode = null;
+  for (const p of active) {
+    const m = (r.modes && r.modes[p]) || defaultMode(p, r.category);
+    if (mode === null || RANK[m] > RANK[mode]) mode = m;
+  }
+  let minAge, allowed;
+  if (mode === "aggressive") { minAge = Math.floor(r.minAge / 2); allowed = COST.high; }
+  else if (mode === "careful") { minAge = r.minAge === 0 ? 0 : Math.max(r.minAge * 2, 30); allowed = COST.low; }
+  else { minAge = r.minAge; allowed = COST.medium; }
+  const preselect = mode !== "protect" && r.safety === "safe" && COST[r.cost] <= allowed;
+  return { mode, minAge, preselect };
+}
+function deletionFor(r) {
+  if (r.deletion === "permanent") return "permanent";
+  if (r.deletion === "trash") return "trash";
+  return (!S.alwaysUseTrash && r.regenerates && r.safety === "safe") ? "permanent" : "trash";
+}
+
+// ---------- apps ----------
+const INSTALLED = [
+  { id: "com.microsoft.teams", name: "Microsoft Teams classic", color: "#5059c9", bytes: 1.12*GB, lastUsed: 240, related: [
+    ["Application Support/Microsoft/Teams", 680*MB], ["Caches/com.microsoft.teams", 210*MB], ["Preferences/com.microsoft.teams.plist", 12e3], ["Saved Application State/com.microsoft.teams.savedState", 40e3]] },
+  { id: "com.unity3d.unityhub", name: "Unity Hub", color: "#222c37", bytes: 410*MB, lastUsed: 210, related: [
+    ["Application Support/UnityHub", 380*MB], ["Logs/Unity", 22*MB], ["Preferences/com.unity3d.unityhub.plist", 8e3]] },
+  { id: "com.amazon.Lassen", name: "Kindle", color: "#f39c12", bytes: 284*MB, lastUsed: 410, related: [
+    ["Containers/com.amazon.Lassen", 1.6*GB], ["Preferences/com.amazon.Lassen.plist", 4e3]] },
+  { id: "com.docker.docker", name: "Docker", color: "#1d63ed", bytes: 2.1*GB, lastUsed: 150, related: [
+    ["Containers/com.docker.docker", 18.6*GB], ["Group Containers/group.com.docker", 14*MB], ["Preferences/com.docker.docker.plist", 6e3]] },
+  { id: "org.videolan.vlc", name: "VLC", color: "#ff8800", bytes: 162*MB, lastUsed: 190, related: [
+    ["Preferences/org.videolan.vlc", 2*MB], ["Saved Application State/org.videolan.vlc.savedState", 30e3]] },
+  { id: "com.blackmagic-design.DaVinciResolveLite", name: "DaVinci Resolve", color: "#2b2b2b", bytes: 3.4*GB, lastUsed: 100, related: [
+    ["Application Support/Blackmagic Design/DaVinci Resolve", 920*MB], ["Preferences/com.blackmagic-design.DaVinciResolveLite.plist", 10e3]] },
+];
+INSTALLED.forEach(a => { a.related = a.related.map(([p, b], i) => ({ id: a.id + "#" + i, path: "~/Library/" + p, bytes: b })); });
+const LEFTOVERS = [
+  { id: "com.getdropbox.dropbox", name: "Dropbox", items: [["~/Library/Application Support/Dropbox", 1.18*GB], ["~/Library/Group Containers/G7HH3F8CAK.com.getdropbox.dropbox.sync", 64*MB]], age: 260 },
+  { id: "com.evernote.Evernote", name: "Evernote", items: [["~/Library/Application Support/com.evernote.Evernote", 640*MB], ["~/Library/Caches/com.evernote.Evernote", 92*MB]], age: 400 },
+  { id: "com.skype.skype", name: "Skype", items: [["~/Library/Application Support/Skype", 310*MB]], age: 520 },
+];
+LEFTOVERS.forEach(g => { g.items = g.items.map(([path, bytes]) => ({ path, bytes })); g.bytes = g.items.reduce((s, x) => s + x.bytes, 0); });
+
+// ---------- state ----------
+const DAY = 86400000;
+const S = {
+  open: true, running: true,
+  onboarded: true, onbStep: 0,
+  tab: "clean",
+  profiles: ["developer", "creative"],
+  showFree: true, alwaysUseTrash: false, launchAtLogin: true,
+  total: 494.38*GB, available: 23.61*GB,
+  scan: "idle", progress: 0, current: "",
+  report: null, selected: new Set(), expanded: new Set(), confirming: false,
+  removed: new Set(), extraTrash: [],
+  outcome: null, history: [
+    { id: 1, date: Date.now() - 9*DAY, freed: 6.4*GB, trashed: 1.2*GB, entries: [], restored: false, note: "8 items" },
+  ],
+  apps: INSTALLED.slice(), threshold: 180, appOpen: null, appRelSel: new Set(), appConfirm: null,
+  leftovers: LEFTOVERS.slice(), leftSel: new Set(LEFTOVERS.map(g => g.id)), leftOpen: new Set(),
+  status: null,
+};
+
+function fmt(b) {
+  if (b >= 1e9) return (b / 1e9).toFixed(b >= 100e9 ? 0 : 1) + " GB";
+  if (b >= 1e6) return Math.round(b / 1e6) + " MB";
+  if (b >= 1e3) return Math.round(b / 1e3) + " KB";
+  return Math.round(b) + " bytes";
+}
+function ago(days) {
+  if (days < 1) return "today";
+  if (days < 2) return "yesterday";
+  if (days < 7) return days + " days ago";
+  if (days < 30) { const w = Math.floor(days / 7); return w === 1 ? "last week" : w + " weeks ago"; }
+  if (days < 365) { const m = Math.floor(days / 30); return m === 1 ? "last month" : m + " months ago"; }
+  const y = Math.floor(days / 365); return y === 1 ? "last year" : y + " years ago";
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const profileNames = sep => S.profiles.slice().sort().map(id => PROFILE[id].title).join(sep);
+const BUNDLE_RE = /^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+){1,}$/;
+
+function itemsFor(r) {
+  let items = r.items.filter(x => !S.removed.has(x.id));
+  if (r.id === "trash") items = items.concat(S.extraTrash);
+  return items;
+}
+
+// ---------- scanning ----------
+function buildReport() {
+  const results = [];
+  for (const r of RULES) {
+    const policy = resolve(r, S.profiles);
+    const all = itemsFor(r);
+    const items = all.filter(x => x.age >= policy.minAge).sort((a, b) => b.bytes - a.bytes);
+    if (!items.length) continue;
+    results.push({ rule: r, policy, items, skipped: all.length - items.length, total: items.reduce((s, x) => s + x.bytes, 0) });
+  }
+  return results;
+}
+let scanTimer = null;
+function startScan() {
+  clearInterval(scanTimer);
+  S.scan = "scanning"; S.progress = 0; S.confirming = false; S.outcome = null;
+  const steps = RULES.flatMap(r => r.items.slice(0, 2).map(x => x.loc + "/" + x.name));
+  let i = 0;
+  scanTimer = setInterval(() => {
+    i++;
+    S.progress = Math.min(1, i / steps.length);
+    S.current = steps[Math.min(i, steps.length - 1)];
+    if (i >= steps.length) {
+      clearInterval(scanTimer);
+      S.report = buildReport();
+      S.selected = new Set();
+      S.report.forEach(res => { if (res.policy.preselect) res.items.forEach(x => { if (!inUse(x)) S.selected.add(x.id); }); });
+      S.expanded = new Set();
+      S.scan = "ready";
+    }
+    render();
+  }, 45);
+  render();
+}
+function cancelScan() { clearInterval(scanTimer); S.scan = S.report ? "ready" : "idle"; render(); }
+const inUse = x => x.owner && RUNNING.has(x.owner) ? x.owner : null;
+
+function breakdown() {
+  let permanent = 0, trash = 0, count = 0;
+  if (!S.report) return { permanent, trash, count };
+  for (const res of S.report) for (const x of res.items) if (S.selected.has(x.id)) {
+    count++; if (deletionFor(res.rule) === "permanent") permanent += x.bytes; else trash += x.bytes;
+  }
+  return { permanent, trash, count };
+}
+
+function clean() {
+  const b = breakdown();
+  const chosen = [];
+  S.report.forEach(res => res.items.forEach(x => { if (S.selected.has(x.id)) chosen.push({ x, rule: res.rule, method: deletionFor(res.rule) }); }));
+  S.scan = "cleaning"; S.progress = 0; S.confirming = false;
+  let i = 0;
+  const t = setInterval(() => {
+    i++; S.progress = i / 16;
+    if (i >= 16) {
+      clearInterval(t);
+      const entries = [];
+      for (const c of chosen) {
+        if (c.rule.id === "trash") {
+          if (c.x.fromTrash) S.extraTrash = S.extraTrash.filter(e => e.id !== c.x.id); else S.removed.add(c.x.id);
+          S.available += c.x.bytes;
+          continue;
+        }
+        S.removed.add(c.x.id);
+        if (c.method === "permanent") S.available += c.x.bytes;
+        else {
+          const te = { id: "t" + Math.random().toString(36).slice(2), name: c.x.name, loc: "~/.Trash", bytes: c.x.bytes, age: 0, fromTrash: true, origin: c.x.id };
+          S.extraTrash.push(te); entries.push(te);
+        }
+      }
+      const record = { id: Date.now(), date: Date.now(), freed: b.permanent, trashed: b.trash, entries, restored: false, note: chosen.length + " items" };
+      S.history.unshift(record); S.history = S.history.slice(0, 30);
+      S.outcome = { freed: b.permanent, trashed: b.trash, record };
+      S.scan = "finished";
+    }
+    render();
+  }, 40);
+  render();
+}
+function undo(record) {
+  if (record.restored || !record.entries.length) return;
+  for (const e of record.entries) {
+    S.extraTrash = S.extraTrash.filter(t => t.id !== e.id);
+    if (e.origin) S.removed.delete(e.origin);
+  }
+  record.restored = true;
+  S.status = "Put back " + record.entries.length + " item" + (record.entries.length === 1 ? "" : "s") + " from the Trash.";
+  if (S.scan === "finished") { S.scan = "idle"; S.report = null; }
+  render();
+}
+function resetScan() { S.scan = "idle"; S.report = null; S.outcome = null; S.selected = new Set(); render(); }
+
+// ---------- rendering ----------
+const host = document.getElementById("panelHost");
+const stage = document.getElementById("stage");
+
+function cb(state, action, label) {
+  const icon = state === "all" ? I.cbOn : state === "some" ? I.cbSome : I.cbOff;
+  const cls = state === "all" ? "on" : state === "some" ? "some" : "";
+  return `<button class="cb ${cls}" role="checkbox" aria-checked="${state === "all" ? "true" : state === "some" ? "mixed" : "false"}" aria-label="${esc(label)}" data-a="${action}">${icon}</button>`;
+}
+function appIcon(bundle, big) {
+  const a = APPS[bundle];
+  if (!a) return `<span class="ico folder">${I.folder}</span>`;
+  return `<span class="ico${big ? " lg" : ""}" style="background:${a[1]}">${esc(a[0][0])}</span>`;
+}
+function itemIcon(x) {
+  if (BUNDLE_RE.test(x.name) && APPS[x.owner]) return appIcon(x.owner);
+  if (/\.(mov|zip|png|ipsw|dmg|pkg|xip|csv)$/i.test(x.name)) return `<span class="ico folder">${I.doc}</span>`;
+  return `<span class="ico folder">${I.folder}</span>`;
+}
+function itemTitle(x) { return BUNDLE_RE.test(x.name) && APPS[x.owner] ? APPS[x.owner][0] : x.name; }
+
+function renderMenubar() {
+  const now = new Date();
+  const date = now.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  const time = now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const sweep = S.running ? `<button class="mb-item mb-sweep${S.open ? " open" : ""}" id="sweepIcon" aria-label="Sweep" aria-expanded="${S.open}" data-a="toggle-open">${I.sparkles}${S.showFree ? `<span>${fmt(S.available)}</span>` : ""}</button>` : "";
+  document.getElementById("mbRight").innerHTML =
+    sweep +
+    `<span class="mb-item mb-hide-sm">${I.battery}</span><span class="mb-item mb-hide-sm">${I.wifi}</span><span class="mb-item mb-hide-sm">${I.search}</span>` +
+    `<span class="mb-item" aria-label="Control Center">${I.control}</span><span class="mb-clock"><span class="mb-hide-sm">${esc(date)}&nbsp; </span>${esc(time)}</span>`;
+}
+
+function renderPanel() {
+  if (!S.running) return `<button class="btn primary large relaunch" data-a="relaunch">Open Sweep again</button>`;
+  if (!S.open) return `<div class="hint">Click ${I.sparkles.replace('<svg', '<svg style="width:13px;height:13px;vertical-align:-2px"')} in the menu bar to open Sweep</div>`;
+  let inner;
+  if (!S.onboarded) inner = renderOnboarding();
+  else {
+    const u = (S.total - S.available) / S.total;
+    const tint = u < .75 ? "var(--accent)" : u < .9 ? "var(--warn)" : "var(--bad)";
+    inner = `
+      <div class="p-head">
+        <div class="p-title"><b>${I.sparkles}Sweep</b><small>${esc(profileNames(" · "))}</small></div>
+        <div class="disk"><div class="bar"><i style="width:${(u * 100).toFixed(1)}%;background:${tint}"></i></div>
+          <div class="disk-meta"><span>${fmt(S.available)} available</span><span>${fmt(S.total - S.available)} of ${fmt(S.total)} used</span></div></div>
+      </div>
+      <div class="seg" role="tablist">${[["clean", "Clean"], ["apps", "Apps"], ["settings", "Profile"]].map(([id, t]) =>
+        `<button role="tab" aria-selected="${S.tab === id}" data-a="tab" data-v="${id}">${t}</button>`).join("")}</div>
+      <div class="hr"></div>
+      <div class="p-body">${S.tab === "clean" ? renderClean() : S.tab === "apps" ? renderApps() : renderSettings()}</div>
+      <div class="hr"></div>
+      <div class="p-foot">
+        <div class="status">${S.status ? `<span>${esc(S.status)}</span><button class="icon-btn" aria-label="Dismiss" data-a="dismiss">${I.x}</button>` : ""}</div>
+        <button class="btn" data-a="quit" title="⌘Q">Quit</button>
+      </div>`;
+  }
+  return `<div class="panel" id="panel" role="dialog" aria-label="Sweep">${inner}</div>`;
+}
+
+function renderClean() {
+  if (S.scan === "idle") return `
+    <div class="center">
+      <span class="big">${I.sparkles}</span>
+      <div style="display:grid;gap:4px"><h3>Ready to scan</h3><p>Tuned for ${esc(profileNames(", "))}. Nothing is removed until you review and confirm.</p></div>
+      <button class="btn primary large" data-a="scan">Scan</button>
+    </div>`;
+  if (S.scan === "scanning" || S.scan === "cleaning") return `
+    <div class="center">
+      <h3 style="font-size:14px">${S.scan === "scanning" ? "Scanning…" : "Cleaning…"}</h3>
+      <div class="progress"><i style="width:${(S.progress * 100).toFixed(0)}%"></i></div>
+      <div class="mono">${esc(S.scan === "scanning" ? S.current : "Removing selected items")}</div>
+      ${S.scan === "scanning" ? `<button class="btn small" data-a="cancel-scan">Cancel</button>` : ""}
+    </div>`;
+  if (S.scan === "finished") return renderFinished();
+  return renderResults();
+}
+
+function selState(res) {
+  const n = res.items.filter(x => S.selected.has(x.id)).length;
+  return n === 0 ? "none" : n === res.items.length ? "all" : "some";
+}
+
+function renderResults() {
+  const rep = S.report;
+  if (!rep.length) return `<div class="center"><span class="big" style="color:var(--panel-ink-3)">${I.checkSeal}</span><h3>Nothing to clean</h3><p>Your Mac is already tidy for the selected profile.</p></div>${actionBar()}`;
+  let html = `<div class="scroll" id="scroll">`;
+  for (const cat of CATEGORIES) {
+    const rs = rep.filter(r => r.rule.category === cat.id);
+    if (!rs.length) continue;
+    html += `<div class="sec-h">${cat.icon}${cat.title}</div>`;
+    for (const res of rs) {
+      const r = res.rule, open = S.expanded.has(r.id);
+      const detail = [deletionFor(r) === "permanent" ? "Deleted" : "Moved to Trash"];
+      if (res.policy.minAge > 0) detail.push(`unused for ${res.policy.minAge}+ days`);
+      if (res.skipped > 0) detail.push(`${res.skipped} recently used kept`);
+      html += `<div class="rule${open ? " open" : ""}">
+        <div class="rule-head" data-a="expand" data-v="${r.id}" role="button" aria-expanded="${open}" tabindex="0">
+          ${I.chev}${cb(selState(res), "toggle-rule\" data-v=\"" + r.id, "Select all in " + r.name)}
+          <div style="min-width:0"><div class="rule-name">${esc(r.name)}${r.safety === "review" ? '<span class="tag warn">Review</span>' : ""}</div>
+            <div class="rule-sum">${esc(r.summary)}</div><div class="rule-detail">${esc(detail.join(" · "))}</div></div>
+          <span class="size">${fmt(res.total)}</span>
+        </div>`;
+      if (open) {
+        html += `<div class="items">` + res.items.map(x => {
+          const running = inUse(x);
+          return `<div class="item" title="${esc(x.loc)}">
+            ${cb(S.selected.has(x.id) ? "all" : "none", "toggle-item\" data-v=\"" + x.id, "Select " + itemTitle(x))}
+            ${itemIcon(x)}
+            <div style="min-width:0"><div class="item-title"><span>${esc(itemTitle(x))}</span>${running ? `<span class="tag warn">${esc(APPS[running] ? APPS[running][0] : "Docker")} is open</span>` : ""}</div>
+              <div class="item-sub">${esc(x.loc)} · used ${ago(x.age)}</div></div>
+            <span class="size">${fmt(x.bytes)}</span></div>`;
+        }).join("") + `</div>`;
+      }
+      html += `</div>`;
+    }
+  }
+  html += `</div><div class="hr"></div>${actionBar()}`;
+  return html;
+}
+
+function actionBar() {
+  const b = breakdown();
+  const totalItems = S.report.reduce((s, r) => s + r.items.length, 0);
+  if (S.confirming) {
+    const parts = [];
+    if (b.permanent > 0) parts.push(`delete ${fmt(b.permanent)} of data that rebuilds itself`);
+    if (b.trash > 0) parts.push(`move ${fmt(b.trash)} to the Trash`);
+    return `<div class="confirm"><div>This will ${parts.join(" and ")}.</div><div class="row"><button class="btn" data-a="confirm-no">Cancel</button><button class="btn primary" data-a="clean">Clean</button></div></div>`;
+  }
+  return `<div class="action-bar"><div class="sum"><b>${fmt(b.permanent + b.trash)}</b><small>${b.count} of ${totalItems} items selected</small></div>
+    <button class="btn" data-a="scan">Rescan</button><button class="btn primary" data-a="confirm" ${b.count ? "" : "disabled"}>Clean…</button></div>`;
+}
+
+function renderFinished() {
+  const o = S.outcome;
+  return `<div class="center">
+    <span class="big" style="color:var(--good)">${I.checkCircle}</span>
+    <div class="outcome"><strong>${fmt(o.freed + o.trashed)} cleaned</strong>
+      ${o.freed > 0 ? `<span>${fmt(o.freed)} freed right away.</span>` : ""}
+      ${o.trashed > 0 ? `<span>${fmt(o.trashed)} is in the Trash. Empty it to reclaim the space.</span>` : ""}</div>
+    <div class="row-btns">
+      ${o.record.entries.length && !o.record.restored ? `<button class="btn" data-a="undo" data-v="${o.record.id}">Undo</button>` : ""}
+      ${o.trashed > 0 ? `<button class="btn" data-a="open-trash">Open Trash</button>` : ""}
+      <button class="btn primary" data-a="done">Done</button>
+    </div></div>`;
+}
+
+function renderApps() {
+  const unused = S.apps.filter(a => a.lastUsed >= S.threshold).sort((a, b) => b.bytes - a.bytes);
+  let html = `<div class="toolbar"><label for="thr">Not opened in</label>
+    <select id="thr" data-a="threshold">${[90, 180, 365].map(d => `<option value="${d}" ${S.threshold === d ? "selected" : ""}>${d === 365 ? "1 year" : d / 30 + " months"}</option>`).join("")}</select>
+    <span class="spacer"></span><button class="btn small" data-a="refresh-apps">Refresh</button></div><div class="hr"></div><div class="scroll" id="scroll">`;
+  html += `<div class="sec-h">Unused apps · ${unused.length}</div>`;
+  if (!unused.length) html += `<div class="note">No apps have gone unopened that long.</div>`;
+  for (const a of unused) {
+    const open = S.appOpen === a.id, running = RUNNING.has(a.id);
+    const relBytes = a.related.filter(r => S.appRelSel.has(r.id)).reduce((s, r) => s + r.bytes, 0);
+    const relCount = a.related.filter(r => S.appRelSel.has(r.id)).length;
+    html += `<div class="rule${open ? " open" : ""}" style="border-bottom:1px solid var(--panel-line)">
+      <div class="app-row" data-a="app-open" data-v="${a.id}" role="button" aria-expanded="${open}" tabindex="0">${I.chev}
+        <span class="ico lg" style="background:${a.color}">${esc(a.name[0])}</span>
+        <div style="min-width:0"><div class="item-title"><span>${esc(a.name)}</span>${running ? '<span class="tag warn">Open</span>' : ""}</div><div class="meta">Last opened ${ago(a.lastUsed)}</div></div>
+        <span class="size">${fmt(a.bytes + a.related.reduce((s, r) => s + r.bytes, 0))}</span></div>`;
+    if (open) {
+      html += `<div class="app-open"><div class="rel"><span></span><div style="min-width:0"><div>${esc(a.name)}.app</div><div class="item-sub">/Applications</div></div><span class="size">${fmt(a.bytes)}</span></div>`;
+      html += a.related.map(r => `<div class="rel">${cb(S.appRelSel.has(r.id) ? "all" : "none", "toggle-rel\" data-v=\"" + r.id, "Include " + r.path)}<div style="min-width:0"><div class="item-sub" style="color:var(--panel-ink)">${esc(r.path.split("/").pop())}</div><div class="item-sub">${esc(r.path.split("/").slice(0, -1).join("/"))}</div></div><span class="size" style="font-size:12px;color:var(--panel-ink-2)">${fmt(r.bytes)}</span></div>`).join("");
+      if (S.appConfirm === a.id) {
+        html += `<div class="confirm" style="padding:6px 0 0"><div style="font-size:12px">Move ${esc(a.name)} and ${relCount} related item${relCount === 1 ? "" : "s"} (${fmt(a.bytes + relBytes)}) to the Trash?</div>
+          <div class="row"><button class="btn small" data-a="app-cancel">Cancel</button><button class="btn small primary" data-a="app-uninstall" data-v="${a.id}">Move to Trash</button></div></div>`;
+      } else {
+        html += `<div class="app-actions"><small>${running ? `Quit ${esc(a.name)} to uninstall it.` : "Everything goes to the Trash, so you can put it back."}</small>
+          <button class="btn small" data-a="app-confirm" data-v="${a.id}" ${running ? "disabled" : ""}>Uninstall…</button></div>`;
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+  const leftBytes = S.leftovers.filter(g => S.leftSel.has(g.id)).reduce((s, g) => s + g.bytes, 0);
+  html += `<div class="sec-h">Left behind by deleted apps · ${S.leftovers.length}</div>`;
+  if (!S.leftovers.length) html += `<div class="note">No leftover app data found.</div>`;
+  for (const g of S.leftovers) {
+    const open = S.leftOpen.has(g.id);
+    html += `<div class="rule${open ? " open" : ""}"><div class="rule-head" data-a="left-open" data-v="${g.id}" role="button" aria-expanded="${open}" tabindex="0">${I.chev}
+      ${cb(S.leftSel.has(g.id) ? "all" : "none", "toggle-left\" data-v=\"" + g.id, "Select " + g.name)}
+      <div style="min-width:0"><div class="rule-name">${esc(g.name)}</div><div class="rule-sum">${esc(g.id)} · last changed ${ago(g.age)}</div></div><span class="size">${fmt(g.bytes)}</span></div>`;
+    if (open) html += `<div class="items">${g.items.map(x => `<div class="item" style="grid-template-columns:18px 1fr auto"><span class="ico folder">${I.folder}</span><div class="item-sub" style="color:var(--panel-ink)">${esc(x.path)}</div><span class="size">${fmt(x.bytes)}</span></div>`).join("")}</div>`;
+    html += `</div>`;
+  }
+  if (S.leftovers.length) html += `<div class="toolbar" style="justify-content:flex-end"><button class="btn small primary" data-a="left-remove" ${leftBytes ? "" : "disabled"}>Move ${fmt(leftBytes)} to Trash</button></div>`;
+  html += `<div class="note">Apps without a recorded last-use date are not listed. Apple apps and apps that are open can't be removed here.</div></div>`;
+  return html;
+}
+
+function renderSettings() {
+  const sug = ["developer", "creative"];
+  const same = sug.length === S.profiles.length && sug.every(p => S.profiles.includes(p));
+  return `<div class="scroll" id="scroll"><div class="pad">
+    <div class="group-label">What do you use this Mac for?</div>
+    ${profileTiles()}
+    ${same ? "" : `<div class="suggest"><div class="row"><b>Suggested: Development, Creative Work</b><button class="btn small" data-a="apply-suggest">Apply</button></div>
+      <ul><li>Xcode opened 2 days ago</li><li>Final Cut Pro and Lightroom Classic installed</li><li>~/Library/Developer/Xcode/DerivedData exists</li></ul></div>`}
+    <div class="group-label">Options</div>
+    <div class="settings">
+      ${switchRow("showFree", "Show free space in menu bar", "")}
+      ${switchRow("alwaysUseTrash", "Always use the Trash", "Rebuildable caches are normally deleted right away to free space immediately.")}
+      ${switchRow("launchAtLogin", "Open at login", "")}
+    </div>
+    <div class="group-label">Permissions</div>
+    <div class="settings"><div class="set-row"><div class="grow">Full Disk Access<small>Needed to read the Trash, Mail downloads and app containers.</small></div><span class="ok">${I.checkCircle.replace("<svg", '<svg style="width:13px;height:13px"')}Allowed</span></div></div>
+    <div class="group-label">Recent cleanups</div>
+    <div class="settings">${S.history.slice(0, 5).map(h => `<div class="set-row hist"><div>${fmt(h.freed + h.trashed)} cleaned<small>${new Date(h.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })} · ${esc(h.note)}${h.restored ? " · put back" : ""}</small></div>
+      ${h.entries.length && !h.restored ? `<button class="btn small" data-a="undo" data-v="${h.id}">Undo</button>` : ""}</div>`).join("")}</div>
+    <div class="row-btns"><button class="btn small" data-a="rerun-setup">Run setup again</button></div>
+    <div class="version">Sweep 0.1.0 (1)</div>
+  </div></div>`;
+}
+function switchRow(key, label, sub) {
+  return `<div class="set-row"><div class="grow">${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ""}</div><button class="switch" role="switch" aria-checked="${S[key]}" aria-label="${esc(label)}" data-a="switch" data-v="${key}"></button></div>`;
+}
+function profileTiles() {
+  return `<div class="tiles">${PROFILES.map(p => `<button class="tile" aria-pressed="${S.profiles.includes(p.id)}" data-a="profile" data-v="${p.id}">${p.icon}<span>${esc(p.title)}<small>${esc(p.summary)}</small></span>${I.tick}</button>`).join("")}</div>`;
+}
+
+function renderOnboarding() {
+  if (S.onbStep === 0) return `<div class="onb">
+    <div class="steps"><i class="on"></i><i></i></div>
+    <h2>What do you use this Mac for?</h2>
+    <p>Sweep is careful with files your work depends on and thorough with everything else. Pick one or more. We preselected what we found on this Mac.</p>
+    <div class="scroll" style="flex:1;min-height:0">${profileTiles()}
+      <div class="suggest" style="margin-top:10px"><b>Why these?</b><ul><li>Xcode opened 2 days ago</li><li>Final Cut Pro and Lightroom Classic installed</li></ul></div></div>
+    <div class="foot"><button class="btn primary" data-a="onb-next">Continue</button></div></div>`;
+  return `<div class="onb">
+    <div class="steps"><i class="on"></i><i class="on"></i></div>
+    <span style="color:var(--accent);width:34px;height:34px;display:block">${I.shield}</span>
+    <h2>Allow Full Disk Access</h2>
+    <p>macOS hides some folders from apps, including the Trash and Mail downloads. Sweep only reads them during a scan and never sends anything off your Mac.</p>
+    <ol class="fda-steps"><li>Open Privacy &amp; Security settings.</li><li>Turn on Sweep under Full Disk Access.</li><li>Come back here. Sweep picks it up on its own.</li></ol>
+    <div class="foot"><button class="btn" data-a="onb-done">Later</button><button class="btn primary" data-a="onb-done" data-v="fda">Open Settings</button></div></div>`;
+}
+
+function renderPolicy() {
+  document.getElementById("policyLede").textContent =
+    `Selected: ${profileNames(", ")}. When profiles disagree the most careful one wins, so a developer who also edits photos keeps their Lightroom previews.`;
+  let html = `<thead><tr><th>Rule</th><th>Treatment</th><th>Skips items newer than</th><th>Checked by default</th></tr></thead><tbody>`;
+  for (const cat of CATEGORIES) {
+    html += `<tr class="cat"><td colspan="4">${cat.title}</td></tr>`;
+    for (const r of RULES.filter(r => r.category === cat.id)) {
+      const p = resolve(r, S.profiles);
+      html += `<tr><td>${esc(r.name)}</td><td><span class="mode ${p.mode}">${p.mode[0].toUpperCase() + p.mode.slice(1)}</span></td>
+        <td class="num">${p.minAge ? p.minAge + " days" : "—"}</td><td>${p.preselect ? '<span class="yes">Yes</span>' : `<span class="no">${r.safety === "review" ? "No · review" : "No"}</span>`}</td></tr>`;
+    }
+  }
+  document.getElementById("policyTable").innerHTML = html + "</tbody>";
+}
+
+function placePanel() {
+  const panel = document.getElementById("panel"), icon = document.getElementById("sweepIcon");
+  if (!panel || !icon) return;
+  const sr = stage.getBoundingClientRect(), ir = icon.getBoundingClientRect();
+  const w = panel.offsetWidth;
+  const left = Math.max(8, Math.min(ir.left - sr.left + ir.width / 2 - w / 2, sr.width - w - 8));
+  panel.style.left = left + "px";
+}
+
+function render() {
+  const sc = document.getElementById("scroll");
+  const top = sc ? sc.scrollTop : 0;
+  const focusKey = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.a + "|" + (document.activeElement.dataset.v || "") : null;
+  renderMenubar();
+  host.innerHTML = renderPanel();
+  const sc2 = document.getElementById("scroll");
+  if (sc2) sc2.scrollTop = top;
+  placePanel();
+  renderPolicy();
+  if (focusKey) {
+    const [a, v] = focusKey.split("|");
+    const el = stage.querySelector(`[data-a="${CSS.escape(a)}"]${v ? `[data-v="${CSS.escape(v)}"]` : ""}`);
+    if (el) el.focus({ preventScroll: true });
+  }
+}
+
+// ---------- events ----------
+function profilesChanged() {
+  if (S.report || S.scan === "finished") { S.report = null; S.scan = "idle"; S.status = "Profiles changed. Scan again to see updated results."; }
+}
+function handle(a, v, el, e) {
+  switch (a) {
+    case "toggle-open": S.open = !S.open; break;
+    case "relaunch": S.running = true; S.open = true; break;
+    case "quit": S.running = false; S.open = false; break;
+    case "tab": S.tab = v; break;
+    case "dismiss": S.status = null; break;
+    case "scan": startScan(); return;
+    case "cancel-scan": cancelScan(); return;
+    case "expand": S.expanded.has(v) ? S.expanded.delete(v) : S.expanded.add(v); break;
+    case "toggle-rule": {
+      e.stopPropagation();
+      const res = S.report.find(r => r.rule.id === v);
+      const all = selState(res) === "all";
+      res.items.forEach(x => all ? S.selected.delete(x.id) : S.selected.add(x.id));
+      S.confirming = false; break;
+    }
+    case "toggle-item": S.selected.has(v) ? S.selected.delete(v) : S.selected.add(v); S.confirming = false; break;
+    case "confirm": S.confirming = true; break;
+    case "confirm-no": S.confirming = false; break;
+    case "clean": clean(); return;
+    case "undo": undo(S.history.find(h => String(h.id) === v)); return;
+    case "done": resetScan(); return;
+    case "open-trash": S.status = "In the real app this opens the Trash in Finder."; break;
+    case "app-open":
+      if (S.appOpen === v) S.appOpen = null;
+      else { S.appOpen = v; S.appConfirm = null; S.appRelSel = new Set(S.apps.find(x => x.id === v).related.map(r => r.id)); }
+      break;
+    case "toggle-rel": e.stopPropagation(); S.appRelSel.has(v) ? S.appRelSel.delete(v) : S.appRelSel.add(v); S.appConfirm = null; break;
+    case "app-confirm": S.appConfirm = v; break;
+    case "app-cancel": S.appConfirm = null; break;
+    case "app-uninstall": {
+      const app = S.apps.find(x => x.id === v);
+      const rel = app.related.filter(r => S.appRelSel.has(r.id));
+      const bytes = app.bytes + rel.reduce((s, r) => s + r.bytes, 0);
+      S.apps = S.apps.filter(x => x.id !== v);
+      S.extraTrash.push({ id: "t" + v, name: app.name + ".app and " + rel.length + " related items", loc: "~/.Trash", bytes, age: 0, fromTrash: true });
+      S.history.unshift({ id: Date.now(), date: Date.now(), freed: 0, trashed: bytes, entries: [], restored: false, note: "Uninstalled " + app.name });
+      S.appOpen = null; S.appConfirm = null;
+      S.status = `Moved ${app.name} (${fmt(bytes)}) to the Trash.`;
+      break;
+    }
+    case "refresh-apps": S.status = "App list refreshed."; break;
+    case "left-open": S.leftOpen.has(v) ? S.leftOpen.delete(v) : S.leftOpen.add(v); break;
+    case "toggle-left": e.stopPropagation(); S.leftSel.has(v) ? S.leftSel.delete(v) : S.leftSel.add(v); break;
+    case "left-remove": {
+      const gone = S.leftovers.filter(g => S.leftSel.has(g.id));
+      const bytes = gone.reduce((s, g) => s + g.bytes, 0);
+      gone.forEach(g => S.extraTrash.push({ id: "t" + g.id, name: g.name + " leftovers", loc: "~/.Trash", bytes: g.bytes, age: 0, fromTrash: true }));
+      S.leftovers = S.leftovers.filter(g => !S.leftSel.has(g.id));
+      S.history.unshift({ id: Date.now(), date: Date.now(), freed: 0, trashed: bytes, entries: [], restored: false, note: "Leftovers from " + gone.map(g => g.name).join(", ") });
+      S.status = `Moved ${fmt(bytes)} of leftover app data to the Trash.`;
+      break;
+    }
+    case "profile": {
+      const has = S.profiles.includes(v);
+      if (has && S.profiles.length === 1) { S.status = "Keep at least one profile selected."; break; }
+      S.profiles = has ? S.profiles.filter(p => p !== v) : S.profiles.concat(v);
+      if (S.onboarded) profilesChanged();
+      break;
+    }
+    case "apply-suggest": S.profiles = ["developer", "creative"]; profilesChanged(); break;
+    case "switch":
+      S[v] = !S[v];
+      if (v === "alwaysUseTrash") S.confirming = false;
+      break;
+    case "rerun-setup": S.onboarded = false; S.onbStep = 0; break;
+    case "onb-next": S.onbStep = 1; break;
+    case "onb-done":
+      S.onboarded = true; S.tab = "clean"; profilesChanged();
+      if (v === "fda") S.status = "In the real app this opens System Settings › Privacy & Security › Full Disk Access.";
+      break;
+    default: return;
+  }
+  render();
+}
+
+stage.addEventListener("click", e => {
+  const el = e.target.closest("[data-a]");
+  if (!el) {
+    if (S.open && !e.target.closest("#panel")) { S.open = false; render(); }
+    return;
+  }
+  if (el.tagName === "SELECT") return;
+  handle(el.dataset.a, el.dataset.v, el, e);
+});
+stage.addEventListener("keydown", e => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches('[role="button"][data-a]')) { e.preventDefault(); handle(e.target.dataset.a, e.target.dataset.v, e.target, e); }
+  if (e.key === "Escape" && S.open) { S.open = false; render(); }
+});
+stage.addEventListener("change", e => {
+  if (e.target.dataset.a === "threshold") { S.threshold = Number(e.target.value); S.appOpen = null; render(); }
+});
+window.addEventListener("resize", placePanel);
+setInterval(renderMenubar, 30000);
+
+// Open in a realistic state: results from a finished scan, ready to review.
+S.report = buildReport();
+S.report.forEach(res => { if (res.policy.preselect) res.items.forEach(x => { if (!inUse(x)) S.selected.add(x.id); }); });
+S.scan = "ready";
+S.expanded.add("xcode-derived-data");
+render();
+})();
+</script>
