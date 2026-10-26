@@ -2,7 +2,7 @@
 
 A menu bar storage cleaner for macOS that tunes itself to what you use your Mac for. Cleaning takes one click, and every detail is one switch away in Pro.
 
-Sweep sits in the menu bar next to Control Center and looks like the rest of macOS: the menu material, your accent color, and standard switches, buttons and grouped lists. Tell it what the Mac is for (everyday use, office and school, development, creative work, gaming). It cleans thoroughly where that's safe and carefully where your work depends on the files.
+Sweep sits in the menu bar next to Control Center and looks like it: a compact Liquid Glass panel with rounded corners (on macOS 26 and later; earlier versions get the vibrant popover material), your accent color, and standard switches, buttons and grouped lists. Tell it what the Mac is for (everyday use, office and school, development, creative work, gaming). It cleans thoroughly where that's safe and carefully where your work depends on the files.
 
 ## Using Sweep
 
@@ -10,7 +10,8 @@ Sweep sits in the menu bar next to Control Center and looks like the rest of mac
 - **Turn on Pro.** The Pro switch in the header shows every rule and file, items that need review, app support files, leftovers from deleted apps, settings and undo history.
 - **Change profiles.** In Pro › Settings, add or remove a profile and scan again. Each rule's treatment follows the table below.
 - **Undo.** Anything that went to the Trash can be put back from the finished screen or from Pro › Settings › Recent cleanups.
-- **Remove unused apps.** The Apps tab lists apps you haven't opened in months. Removing one moves the app and its support files to the Trash together.
+- **Uninstall any app.** The Uninstall tab lists every app in Applications, searchable and sortable by name, size or last use. Choose one to see everything it keeps, grouped by kind: app data, sandboxed and shared containers, caches, preferences, background items, web data, saved window state, logs and crash reports. That includes data of its login items and extensions. One click moves the app and all of it to the Trash. Pro mode lets you leave individual items out. Sweep stops the app's background agents first. If an app belongs to the system (App Store and admin installs), Finder asks for your password. Shared data under a developer's team ID is only removed when no other app from that developer is installed.
+- **Remove unused apps.** The Unused tab lists apps you haven't opened in months, plus data left behind by apps you've already deleted. Removing one moves the app and its support files to the Trash together.
 
 ## How your profiles shape each rule
 
@@ -86,10 +87,10 @@ swift run Sweep              # runs once without the .app bundle
 ./scripts/build-app.sh       # builds build/Sweep.app (UNIVERSAL=1 for arm64 + x86_64)
 ```
 
-`scripts/dev.sh` quits any installed copy and runs a debug build in the menu bar. It also opens the panel in a floating preview window, so you can see changes without clicking the icon. After a failed build the previous build keeps running and the errors are printed. It uses `fswatch` if installed (`brew install fswatch`) and otherwise checks for changes every second. Run `SWEEP_PREVIEW=0 ./scripts/dev.sh` to skip the preview window. The debug build runs as a bare binary started from your terminal, so macOS checks the terminal's Full Disk Access, not Sweep's. Test the permission flow with `./scripts/install.sh`.
+`scripts/dev.sh` quits any installed copy and runs a debug build in the menu bar. It also opens the panel at launch and keeps it open when you click elsewhere, so you can see changes without clicking the icon. After a failed build the previous build keeps running and the errors are printed. It uses `fswatch` if installed (`brew install fswatch`) and otherwise checks for changes every second. Run `SWEEP_PREVIEW=0 ./scripts/dev.sh` to have the panel behave normally. The debug build runs as a bare binary started from your terminal, so macOS checks the terminal's Full Disk Access, not Sweep's. Test the permission flow with `./scripts/install.sh`.
 
 - `Sources/SweepCore`: rules, profiles, scanner, cleaner, history and app inventory. No UI.
-- `Sources/Sweep`: the SwiftUI menu bar app. `Views/Style.swift` holds the shared look (grouped rows, section titles, the capacity bar).
+- `Sources/Sweep`: the SwiftUI menu bar app. `Support/StatusPanel.swift` owns the menu bar icon and the glass panel. `Views/Style.swift` holds the shared look (sizes, grouped rows, section titles, the capacity bar).
 - Rules live in `Sources/SweepCore/Rules/DefaultRules.swift` as JSON. A file at `~/Library/Application Support/Sweep/rules.json` with the same shape overrides rules by id.
 - `docs/sweep-prototype.html`: an interactive browser prototype of the panel, with a table of how your profiles treat every rule.
 

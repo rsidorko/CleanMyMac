@@ -2,50 +2,26 @@ import AppKit
 import SwiftUI
 import SweepCore
 
-// The panel follows the look of macOS's own menu bar extras (Control Center, Wi-Fi, Battery): the menu
-// material, system text colors, the user's accent color, native controls and grouped rows. Color is only
-// used where it means something: the accent for the main action and selections, green for done, orange for
-// caution, red for removal.
+// The panel follows the look of macOS's Control Center: a Liquid Glass panel with large, concentric corners,
+// grouped modules on a faint fill, system text colors, the user's accent color and native controls. Color is
+// only used where it means something: the accent for the main action and selections, green for done, orange
+// for caution, red for removal.
 
 enum Metrics {
-    static let panelWidth: CGFloat = 360
-    static let panelHeight: CGFloat = 560
+    static let panelWidth: CGFloat = 340
+    static let panelHeight: CGFloat = 520
+    static let panelRadius: CGFloat = 24
     /// Horizontal inset of panel content.
-    static let gutter: CGFloat = 12
-    static let groupRadius: CGFloat = 10
+    static let gutter: CGFloat = 10
+    /// Concentric with the panel: panelRadius - gutter.
+    static let groupRadius: CGFloat = 14
 }
 
-/// The menu material behind the whole panel.
-struct PanelBackground: View {
-    var body: some View {
-        VisualEffectView(material: .menu, blendingMode: .behindWindow)
-            .ignoresSafeArea()
-    }
-}
-
-struct VisualEffectView: NSViewRepresentable {
-    let material: NSVisualEffectView.Material
-    let blendingMode: NSVisualEffectView.BlendingMode
-
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = material
-        view.blendingMode = blendingMode
-        view.state = .active
-        return view
-    }
-
-    func updateNSView(_ view: NSVisualEffectView, context: Context) {
-        view.material = material
-        view.blendingMode = blendingMode
-    }
-}
-
-/// A rounded group of rows on a faint fill, like the sections of a Control Center menu.
+/// A rounded group of rows on a faint fill, like the modules of Control Center.
 struct InsetGroup: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: Metrics.groupRadius, style: .continuous))
+            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: Metrics.groupRadius, style: .continuous))
     }
 }
 
@@ -146,8 +122,8 @@ struct Toast: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.12), radius: 8, y: 3)
         .padding(.horizontal, Metrics.gutter)
     }

@@ -5,12 +5,13 @@ import SweepCore
 @MainActor
 final class AppModel: ObservableObject {
     enum Tab: String, CaseIterable, Identifiable {
-        case clean, apps, settings
+        case clean, uninstall, apps, settings
         var id: String { rawValue }
         var title: String {
             switch self {
             case .clean: return "Clean"
-            case .apps: return "Apps"
+            case .uninstall: return "Uninstall"
+            case .apps: return "Unused"
             case .settings: return "Settings"
             }
         }
@@ -72,7 +73,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    var visibleTabs: [Tab] { proMode ? Tab.allCases : [.clean, .apps] }
+    var visibleTabs: [Tab] { proMode ? Tab.allCases : [.clean, .uninstall, .apps] }
 
     // MARK: Clean tab
 
@@ -88,6 +89,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var appsLoaded = false
     @Published private(set) var installedApps: [InstalledApp] = []
     @Published private(set) var appSizes: [String: Int64] = [:]
+    @Published private(set) var runningBundleIDs: Set<String> = []
     @Published private(set) var leftovers: [LeftoverGroup] = []
     @Published private(set) var selectedLeftovers: Set<String> = []
     @Published private(set) var appsBusy = false
@@ -107,6 +109,7 @@ final class AppModel: ObservableObject {
     private var scanTask: Task<Void, Never>?
     private var diskTimer: Timer?
     private var accessTimer: Timer?
+    private var sizesInFlight: Set<String> = []
 
     init() {
         let defaults = UserDefaults.standard
@@ -132,6 +135,13 @@ final class AppModel: ObservableObject {
             Task { @MainActor in
                 self.refreshDisk()
                 self.refreshPermissions()
+            }
+        }
+        runningBundleIDs = SystemIntegration.runningBundleIDs()
+        let workspace = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification] {
+            workspace.addObserver(forName: name, object: nil, queue: .main) { _ in
+                Task { @MainActor in self.runningBundleIDs = SystemIntegration.runningBundleIDs() }
             }
         }
         detectProfiles()
@@ -406,28 +416,43 @@ final class AppModel: ObservableObject {
             self.selectedLeftovers = []
             self.appsLoading = false
             self.appsLoaded = true
-            self.computeSizes(for: self.unusedApps)
+            // Unused apps first: that list shows sizes up front. The rest fill in for the Uninstall list.
+            self.computeSizes(for: self.unusedApps + self.installedApps)
         }
     }
 
+    func isRunning(_ app: InstalledApp) -> Bool {
+        app.bundleID.map { runningBundleIDs.contains($0) } ?? false
+    }
+
     func computeSizes(for apps: [InstalledApp]) {
-        let missing = apps.filter { appSizes[$0.id] == nil }
+        let missing = apps.filter { appSizes[$0.id] == nil && !sizesInFlight.contains($0.id) }
         guard !missing.isEmpty else { return }
+        sizesInFlight.formUnion(missing.map(\.id))
         Task {
             for app in missing {
                 let bytes = await Task.detached(priority: .utility) {
                     FileStatsCalculator.stats(for: app.url).allocatedBytes
                 }.value
                 self.appSizes[app.id] = bytes
+                self.sizesInFlight.remove(app.id)
             }
         }
     }
 
     func relatedFiles(for app: InstalledApp) async -> [ScanItem] {
         let environment = ScanEnvironment(home: home)
+        let otherApps = installedApps
         return await Task.detached(priority: .userInitiated) {
-            UninstallPlanner.relatedFiles(for: app, environment: environment, safety: SafetyGuard(home: environment.home))
+            UninstallPlanner.relatedFiles(for: app, otherApps: otherApps, environment: environment,
+                                          safety: SafetyGuard(home: environment.home))
         }.value
+    }
+
+    /// Asks the app to quit, the same as choosing Quit in its menu, so it can save its work.
+    func quit(_ app: InstalledApp) {
+        guard let id = app.bundleID else { return }
+        NSRunningApplication.runningApplications(withBundleIdentifier: id).forEach { $0.terminate() }
     }
 
     func uninstall(_ app: InstalledApp, including files: [ScanItem]) {
@@ -436,19 +461,39 @@ final class AppModel: ObservableObject {
             statusMessage = "Quit \(app.name) before uninstalling it."
             return
         }
+        // A loaded background agent keeps running after its file is gone, until the next login.
+        for file in files where file.url.deletingLastPathComponent().lastPathComponent == "LaunchAgents" {
+            SystemIntegration.unloadLaunchAgent(file.url)
+        }
         let requests = [CleanupRequest(url: app.url, bytes: appSizes[app.id] ?? 0, ruleID: "uninstall", method: .trash)]
             + files.map { CleanupRequest(url: $0.url, bytes: $0.bytes, ruleID: "uninstall", method: .trash) }
         appsBusy = true
         perform(requests, reportProgress: false) { outcome in
-            self.appsBusy = false
-            if FileManager.default.fileExists(atPath: app.url.path) {
-                let reason = outcome.failures.first { $0.path == app.url.path }?.reason ?? "Unknown error."
-                self.statusMessage = "Couldn't move \(app.name) to the Trash: \(reason) Try dragging it to the Trash in Finder."
-            } else {
-                self.installedApps.removeAll { $0.id == app.id }
-                self.statusMessage = "\(app.name) moved to the Trash with \(files.count) related item\(files.count == 1 ? "" : "s")."
+            guard FileManager.default.fileExists(atPath: app.url.path) else {
+                self.appsBusy = false
+                self.finishUninstall(app, files: files, failures: outcome.failures.count)
+                return
+            }
+            // Apps installed by the App Store or an administrator belong to the system; Finder can move them
+            // after asking for an administrator password.
+            Task {
+                let moved = await Task.detached(priority: .userInitiated) { SystemIntegration.moveToTrashWithFinder(app.url) }.value
+                self.appsBusy = false
+                if moved {
+                    self.finishUninstall(app, files: files, failures: outcome.failures.count - 1)
+                } else {
+                    let reason = outcome.failures.first { $0.path == app.url.path }?.reason ?? "Unknown error."
+                    self.statusMessage = "Couldn't move \(app.name) to the Trash: \(reason) Try dragging it to the Trash in Finder."
+                }
             }
         }
+    }
+
+    private func finishUninstall(_ app: InstalledApp, files: [ScanItem], failures: Int) {
+        installedApps.removeAll { $0.id == app.id }
+        appSizes[app.id] = nil
+        statusMessage = "\(app.name) moved to the Trash with \(files.count) related item\(files.count == 1 ? "" : "s")."
+            + (failures > 0 ? " \(failures) item\(failures == 1 ? "" : "s") couldn't be moved." : "")
     }
 
     /// Simple mode removes an app together with all of its support files.

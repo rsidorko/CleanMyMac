@@ -66,6 +66,33 @@ enum SystemIntegration {
         NSWorkspace.shared.open(FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".Trash"))
     }
 
+    // MARK: Uninstalling
+
+    /// Stops a background agent from the user's LaunchAgents folder, so it doesn't keep running once its file is gone.
+    static func unloadLaunchAgent(_ plist: URL) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        process.arguments = ["bootout", "gui/\(getuid())", plist.path]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        guard (try? process.run()) != nil else { return }
+        process.waitUntilExit()
+    }
+
+    /// Moves an item to the Trash through Finder, which asks for an administrator password when the item belongs
+    /// to the system. The first time, macOS asks whether Sweep may control Finder.
+    nonisolated static func moveToTrashWithFinder(_ url: URL) -> Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", "on run argv", "-e", "tell application \"Finder\" to delete (POSIX file (item 1 of argv) as alias)",
+                             "-e", "end run", url.path]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        guard (try? process.run()) != nil else { return false }
+        process.waitUntilExit()
+        return process.terminationStatus == 0 && !FileManager.default.fileExists(atPath: url.path)
+    }
+
     // MARK: App names and icons
 
     private static var appURLCache: [String: URL?] = [:]

@@ -56,14 +56,32 @@ esac
 
 [ -d "$source_app" ] || { echo "Couldn't find Sweep.app in what was given."; exit 1; }
 
-# Quit a running copy so it can be replaced.
-osascript -e 'tell application id "io.github.rsidorko.sweep" to quit' >/dev/null 2>&1 || true
-sleep 1
+# Uninstall the previous version completely before installing the new one.
+BUNDLE_ID="io.github.rsidorko.sweep"
+echo "Removing the previous version of Sweep…"
+osascript -e "tell application id \"$BUNDLE_ID\" to quit" >/dev/null 2>&1 || true
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+    pgrep -f "/Sweep.app/Contents/MacOS/Sweep" >/dev/null || break
+    sleep 0.5
+done
+pkill -f "/Sweep.app/Contents/MacOS/Sweep" 2>/dev/null || true
+# A scripts/dev.sh loop and its debug build would leave a second icon in the menu bar.
+pkill -f "scripts/dev.sh" 2>/dev/null || true
+pkill -f "/.build/.*/Sweep$" 2>/dev/null || true
+for old in "$DEST" "$HOME/Applications/Sweep.app"; do
+    if [ -d "$old" ] && [ "$old" != "$source_app" ]; then
+        rm -rf "$old"
+        echo "  Removed $old"
+    fi
+done
+# Each build has a new ad-hoc signature, so the old Full Disk Access entry no longer applies. Clearing it
+# leaves a single, working Sweep entry in System Settings once access is granted again.
+tccutil reset SystemPolicyAllFiles "$BUNDLE_ID" >/dev/null 2>&1 || true
 
-rm -rf "$DEST"
 ditto "$source_app" "$DEST"
 # Builds from GitHub aren't notarized; this stops Gatekeeper from blocking the first launch.
 xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
 
 open "$DEST"
 echo "Installed $DEST. Look for the trash can icon in your menu bar."
+echo "Turn on Sweep again in System Settings › Privacy & Security › Full Disk Access when it asks."

@@ -64,6 +64,18 @@ public enum AppInventory {
         #endif
     }
 
+    /// Identifiers of the login items, extensions, XPC services and helper apps inside a bundle.
+    public static func embeddedBundleIDs(of url: URL) -> [String] {
+        let folders = ["Contents/Library/LoginItems", "Contents/Library/LaunchServices", "Contents/PlugIns",
+                       "Contents/XPCServices", "Contents/Helpers", "Contents/Library/SystemExtensions"]
+        let fm = FileManager.default
+        return folders.flatMap { folder -> [String] in
+            let directory = url.appendingPathComponent(folder)
+            let names = (try? fm.contentsOfDirectory(atPath: directory.path)) ?? []
+            return names.compactMap { bundleID(of: directory.appendingPathComponent($0))?.lowercased() }
+        }
+    }
+
     static func bundleID(of url: URL) -> String? {
         infoPlist(of: url)?["CFBundleIdentifier"] as? String
     }
