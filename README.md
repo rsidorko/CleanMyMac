@@ -8,7 +8,13 @@ Sweep lives in the menu bar next to Control Center. It opens in a simple mode: o
 
 Requires macOS 14 (Sonoma) or later.
 
-**From a build:** download `Sweep.zip` from the [latest build](https://github.com/rsidorko/CleanMyMac/releases/tag/latest-build), then run:
+**One command** (downloads the latest build, installs it in /Applications and opens it):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/rsidorko/CleanMyMac/claude/menu-bar-app/scripts/install.sh | bash
+```
+
+**From a downloaded build:** download `Sweep.zip` from the [latest build](https://github.com/rsidorko/CleanMyMac/releases/tag/latest-build), then run:
 
 ```sh
 ./scripts/install.sh ~/Downloads/Sweep.zip
@@ -21,8 +27,6 @@ ditto -x -k ~/Downloads/Sweep.zip /Applications && xattr -dr com.apple.quarantin
 ```
 
 Builds are ad-hoc signed and not notarized, so the quarantine flag has to be removed before macOS will open the app.
-
-**With the GitHub CLI:** `./scripts/install.sh --download`
 
 **From source** (needs Xcode or the Command Line Tools, Swift 5.9+):
 

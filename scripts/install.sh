@@ -3,12 +3,21 @@
 #
 #   ./scripts/install.sh                 build from this checkout (needs Xcode or the Command Line Tools)
 #   ./scripts/install.sh ~/Downloads/Sweep.zip   install a downloaded build (a .zip or a .app)
-#   ./scripts/install.sh --download      download the latest build with the GitHub CLI (gh)
+#   ./scripts/install.sh --download      download the latest build
+#
+# Or, without a checkout:
+#   curl -fsSL https://raw.githubusercontent.com/rsidorko/CleanMyMac/claude/menu-bar-app/scripts/install.sh | bash
 set -euo pipefail
 
 REPO="rsidorko/CleanMyMac"
 DEST="/Applications/Sweep.app"
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ZIP_URL="https://github.com/$REPO/releases/download/latest-build/Sweep.zip"
+# Empty when the script is piped into bash, so it downloads instead of building.
+SCRIPT="${BASH_SOURCE[0]:-}"
+ROOT=""
+if [ -n "$SCRIPT" ] && [ -f "$(dirname "$SCRIPT")/../Package.swift" ]; then
+    ROOT="$(cd "$(dirname "$SCRIPT")/.." && pwd)"
+fi
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -22,15 +31,22 @@ case "${1:-}" in
         source_app="${1%/}"
         ;;
     --download)
-        command -v gh >/dev/null || { echo "The GitHub CLI isn't installed. Get it with: brew install gh"; exit 1; }
-        gh release download latest-build --repo "$REPO" --pattern Sweep.zip --dir "$WORK"
+        echo "Downloading the latest Sweep build…"
+        curl -fL --progress-bar -o "$WORK/Sweep.zip" "$ZIP_URL"
         ditto -x -k "$WORK/Sweep.zip" "$WORK"
         source_app="$WORK/Sweep.app"
         ;;
     "")
-        command -v swift >/dev/null || { echo "Swift isn't installed. Run: xcode-select --install"; exit 1; }
-        "$ROOT/scripts/build-app.sh"
-        source_app="$ROOT/build/Sweep.app"
+        if [ -n "$ROOT" ]; then
+            command -v swift >/dev/null || { echo "Swift isn't installed. Run: xcode-select --install, or use --download"; exit 1; }
+            "$ROOT/scripts/build-app.sh"
+            source_app="$ROOT/build/Sweep.app"
+        else
+            echo "Downloading the latest Sweep build…"
+            curl -fL --progress-bar -o "$WORK/Sweep.zip" "$ZIP_URL"
+            ditto -x -k "$WORK/Sweep.zip" "$WORK"
+            source_app="$WORK/Sweep.app"
+        fi
         ;;
     *)
         echo "Usage: $0 [path/to/Sweep.zip | path/to/Sweep.app | --download]"
