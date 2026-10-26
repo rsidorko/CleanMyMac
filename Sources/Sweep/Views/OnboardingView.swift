@@ -12,7 +12,7 @@ struct OnboardingView: View {
                 ForEach(0..<2) { index in
                     Capsule()
                         .fill(index <= step ? Color.accentColor : Color.primary.opacity(0.12))
-                        .frame(width: 22, height: 6)
+                        .frame(width: 18, height: 4)
                 }
             }
             if step == 0 {
@@ -21,17 +21,18 @@ struct OnboardingView: View {
                 accessStep
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.top, 22)
-        .padding(.bottom, 16)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: step)
+        .padding(.horizontal, Metrics.gutter + 4)
+        .padding(.top, 18)
+        .padding(.bottom, Metrics.gutter)
+        .animation(.easeOut(duration: 0.2), value: step)
     }
 
     private var profileStep: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("What do you use this Mac for?")
-                .font(.system(size: 20, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
             Text("Sweep is careful with files your work depends on and thorough with everything else. Pick one or more.")
+                .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             ScrollView {
@@ -39,20 +40,20 @@ struct OnboardingView: View {
                     ProfilePicker()
                     if let suggestion = model.suggestion, !suggestion.profiles.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("We preselected what we found")
+                            Text("Preselected from what's on this Mac")
                                 .font(.system(size: 12, weight: .semibold))
                             EvidenceList(suggestion: suggestion)
                         }
-                        .padding(12)
+                        .padding(10)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.accentColor.opacity(0.12)))
+                        .insetGroup()
                     }
                 }
             }
             HStack {
                 Spacer()
                 Button("Continue") { step = 1 }
-                    .buttonStyle(BubbleButtonStyle(kind: .primary))
+                    .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.defaultAction)
             }
         }
@@ -60,10 +61,13 @@ struct OnboardingView: View {
 
     private var accessStep: some View {
         VStack(alignment: .leading, spacing: 14) {
-            BubbleIcon(symbol: "lock.shield.fill", color: Palette.blueBottom, size: 52)
+            Image(systemName: "lock.shield")
+                .font(.system(size: 34))
+                .foregroundStyle(Color.accentColor)
             Text("Allow Full Disk Access")
-                .font(.system(size: 20, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
             Text("macOS hides some folders from apps, including the Trash and Mail downloads. Sweep only reads them during a scan and never sends anything off your Mac.")
+                .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 4) {
@@ -71,34 +75,35 @@ struct OnboardingView: View {
                 Text("2. Turn on Sweep under Full Disk Access.")
                 Text("3. Come back here. Sweep picks it up on its own.")
             }
+            .font(.system(size: 12))
             .foregroundStyle(.secondary)
+            if !model.hasFullDiskAccess && SystemIntegration.canRelaunch {
+                HStack(spacing: 6) {
+                    Text("Turned it on but nothing changed?")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    Button("Relaunch Sweep") { SystemIntegration.relaunch() }
+                        .controlSize(.small)
+                }
+            }
             if model.hasFullDiskAccess {
                 Label("Full Disk Access is on", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(Palette.good)
-                    .font(.system(size: 13, weight: .semibold))
+                    .symbolRenderingMode(.multicolor)
+                    .font(.system(size: 12, weight: .medium))
             }
             Spacer()
             HStack(spacing: 8) {
                 Button("Back") { step = 0 }
-                    .buttonStyle(BubbleButtonStyle())
                 Spacer()
                 if model.hasFullDiskAccess {
                     Button("Start") { finish() }
-                        .buttonStyle(BubbleButtonStyle(kind: .primary))
+                        .buttonStyle(.borderedProminent)
                         .keyboardShortcut(.defaultAction)
                 } else {
                     Button("Later") { finish() }
-                        .buttonStyle(BubbleButtonStyle())
                     Button("Open Settings") { SystemIntegration.openFullDiskAccessSettings() }
-                        .buttonStyle(BubbleButtonStyle(kind: .primary))
+                        .buttonStyle(.borderedProminent)
                 }
-            }
-        }
-        .task {
-            // Notice when the user grants access in System Settings.
-            while !Task.isCancelled && !model.hasFullDiskAccess {
-                try? await Task.sleep(nanoseconds: 1_500_000_000)
-                model.refreshPermissions()
             }
         }
     }

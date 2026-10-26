@@ -9,7 +9,7 @@ struct CleanView: View {
         case .idle:
             IdleView()
         case .scanning(let progress, let current):
-            ProgressPanel(title: "Scanning", detail: current, progress: progress, cancel: model.cancelScan)
+            ProgressPanel(title: "Scanning…", detail: current, progress: progress, cancel: model.cancelScan)
         case .ready:
             if let report = model.report {
                 if model.proMode {
@@ -19,7 +19,7 @@ struct CleanView: View {
                 }
             }
         case .cleaning(let progress):
-            ProgressPanel(title: "Cleaning", detail: "Removing selected items", progress: progress, cancel: nil)
+            ProgressPanel(title: "Cleaning…", detail: "Removing selected items", progress: progress, cancel: nil)
         case .finished:
             FinishedView()
         }
@@ -30,30 +30,50 @@ private struct IdleView: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        VStack(spacing: 18) {
-            Spacer(minLength: 0)
-            GaugeRing(fraction: model.disk?.usedFraction ?? 0) {
-                ScanOrb { model.startScan() }
-            }
-            VStack(spacing: 4) {
-                if let disk = model.disk {
-                    Text("\(ByteFormat.string(disk.available)) free of \(ByteFormat.string(disk.total))")
-                        .font(.system(size: 15, weight: .semibold))
+        VStack(alignment: .leading, spacing: 12) {
+            if let disk = model.disk {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("\(ByteFormat.string(disk.available)) available")
+                            .font(.system(size: 20, weight: .semibold))
+                            .monospacedDigit()
+                        Spacer(minLength: 4)
+                        Text("of \(ByteFormat.string(disk.total))")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                    CapacityBar(fraction: disk.usedFraction)
+                    Text("\(ByteFormat.string(disk.used)) used")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
                         .monospacedDigit()
                 }
-                Text("Tuned for \(profileList(model.profiles, joiner: " and ")). Nothing is removed until you confirm.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 30)
+                .padding(12)
+                .insetGroup()
             }
+
+            Text("Tuned for \(profileList(model.profiles, joiner: " and ")). Nothing is removed until you confirm.")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 4)
+
             Spacer(minLength: 0)
+
             if !model.hasFullDiskAccess {
                 FullDiskAccessBanner()
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 14)
             }
+
+            Button { model.startScan() } label: {
+                Text("Scan").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .keyboardShortcut(.defaultAction)
         }
+        .padding(.horizontal, Metrics.gutter)
+        .padding(.bottom, Metrics.gutter)
     }
 }
 
@@ -68,30 +88,65 @@ private struct ProgressPanel: View {
     let cancel: (@MainActor () -> Void)?
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 8) {
             Spacer()
-            GaugeRing(fraction: progress) {
-                VStack(spacing: 2) {
-                    Text("\(Int((progress * 100).rounded()))%")
-                        .font(.system(size: 30, weight: .semibold))
-                        .monospacedDigit()
-                    Text(title)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+            HStack {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                Spacer()
+                Text("\(Int((progress * 100).rounded()))%")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
             }
+            ProgressView(value: progress)
+                .progressViewStyle(.linear)
+                .animation(.easeOut(duration: 0.3), value: progress)
             Text(detail)
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(.tertiary)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
-                .padding(.horizontal, 40)
-            if let cancel {
-                Button("Cancel", action: cancel)
-                    .buttonStyle(BubbleButtonStyle())
-            }
             Spacer()
+            if let cancel {
+                Button(action: cancel) {
+                    Text("Cancel").frame(maxWidth: .infinity)
+                }
+                .controlSize(.large)
+                .keyboardShortcut(.cancelAction)
+            }
         }
+        .padding(.horizontal, Metrics.gutter + 4)
+        .padding(.bottom, Metrics.gutter)
+    }
+}
+
+/// A large symbol with a title and message, used for "done" and "nothing found" states.
+private struct StatusMessage: View {
+    let symbol: String
+    var color: Color = .secondary
+    let title: String
+    let message: [String]
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: symbol)
+                .font(.system(size: 40, weight: .regular))
+                .foregroundStyle(color)
+                .padding(.bottom, 4)
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .monospacedDigit()
+            ForEach(message, id: \.self) { line in
+                Text(line)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.horizontal, 28)
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -106,114 +161,114 @@ private struct SimpleResultsView: View {
         let breakdown = model.selectionBreakdown
         VStack(spacing: 0) {
             if groups.isEmpty {
-                VStack(spacing: 16) {
-                    Spacer()
-                    GaugeRing(fraction: 1, tint: LinearGradient(colors: [.green, Palette.good], startPoint: .top, endPoint: .bottom)) {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 44, weight: .bold))
-                            .foregroundStyle(Palette.good)
-                    }
-                    Text("All tidy")
-                        .font(.title3.weight(.semibold))
-                    Text("Nothing safe to clean right now. Pro shows items that need a closer look.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 30)
-                    Button("Scan again") { model.startScan() }
-                        .buttonStyle(BubbleButtonStyle())
-                    Spacer()
-                }
+                Spacer()
+                StatusMessage(symbol: "checkmark.circle", title: "All tidy",
+                              message: ["Nothing safe to clean right now. Turn on Pro to see items that need a closer look."])
+                Spacer()
+                Button { model.startScan() } label: { Text("Scan again").frame(maxWidth: .infinity) }
+                    .controlSize(.large)
+                    .padding(Metrics.gutter)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(ByteFormat.string(breakdown.permanent + breakdown.trash))
-                                .font(.system(size: 34, weight: .semibold))
+                                .font(.system(size: 26, weight: .semibold))
                                 .monospacedDigit()
                                 .contentTransition(.numericText())
-                            Text("ready to clean · tuned for \(profileList(model.profiles, joiner: " and "))")
-                                .font(.system(size: 12.5))
+                            Text("can be cleaned, tuned for \(profileList(model.profiles, joiner: " and "))")
+                                .font(.system(size: 11))
                                 .foregroundStyle(.secondary)
                         }
-                        .padding(.horizontal, 6)
-                        .padding(.bottom, 6)
+                        .padding(.horizontal, 4)
+                        .padding(.bottom, 4)
 
-                        ForEach(groups) { group in
-                            CategoryCard(group: group, isOn: model.isOn(group)) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                                    model.toggle(group)
-                                    confirming = false
+                        VStack(spacing: 0) {
+                            ForEach(Array(groups.enumerated()), id: \.element.id) { index, group in
+                                if index > 0 { RowDivider(leading: 46) }
+                                CategoryRow(group: group, isOn: model.isOn(group)) {
+                                    withAnimation(.easeOut(duration: 0.2)) {
+                                        model.toggle(group)
+                                        confirming = false
+                                    }
                                 }
                             }
                         }
+                        .insetGroup()
                     }
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, Metrics.gutter)
                     .padding(.bottom, 10)
                 }
 
-                VStack(spacing: 10) {
+                VStack(spacing: 8) {
                     if confirming {
                         Text(confirmationText(permanent: breakdown.permanent, trash: breakdown.trash))
-                            .font(.system(size: 12.5))
+                            .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
                         HStack(spacing: 8) {
                             Button { confirming = false } label: { Text("Cancel").frame(maxWidth: .infinity) }
-                                .buttonStyle(BubbleButtonStyle())
+                                .keyboardShortcut(.cancelAction)
                             Button {
                                 confirming = false
                                 model.cleanSelected()
                             } label: { Text("Clean now").frame(maxWidth: .infinity) }
-                                .buttonStyle(BubbleButtonStyle(kind: .primary))
+                                .buttonStyle(.borderedProminent)
                                 .keyboardShortcut(.defaultAction)
                         }
+                        .controlSize(.large)
                     } else {
-                        Button("Clean \(ByteFormat.string(breakdown.permanent + breakdown.trash))") {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { confirming = true }
+                        Button {
+                            withAnimation(.easeOut(duration: 0.2)) { confirming = true }
+                        } label: {
+                            Text("Clean \(ByteFormat.string(breakdown.permanent + breakdown.trash))")
+                                .monospacedDigit()
+                                .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(BubbleButtonStyle(kind: .primary, large: true))
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
                         .disabled(breakdown.count == 0)
                     }
                 }
-                .padding(.horizontal, 14)
-                .padding(.top, 6)
-                .padding(.bottom, 14)
+                .padding(.horizontal, Metrics.gutter)
+                .padding(.top, 4)
+                .padding(.bottom, Metrics.gutter)
             }
         }
     }
 }
 
-private struct CategoryCard: View {
+private struct CategoryRow: View {
     let group: AppModel.SimpleGroup
     let isOn: Bool
     let toggle: @MainActor () -> Void
 
     var body: some View {
         HStack(spacing: 10) {
-            BubbleIcon(symbol: group.category.symbolName, color: group.category.tint)
+            SymbolCircle(symbol: group.category.symbolName, isOn: isOn)
             VStack(alignment: .leading, spacing: 1) {
                 Text(group.category.simpleTitle)
-                    .font(.system(size: 13.5, weight: .semibold))
+                    .font(.system(size: 13))
                 Text(group.category.simpleSummary)
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
-            .opacity(isOn ? 1 : 0.55)
             Spacer(minLength: 4)
             Text(ByteFormat.string(group.bytes))
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
             Toggle("Include \(group.category.simpleTitle)", isOn: Binding(get: { isOn }, set: { _ in toggle() }))
                 .toggleStyle(.switch)
-                .tint(Palette.good)
+                .controlSize(.mini)
                 .labelsHidden()
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .glassCard(radius: 18)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: toggle)
     }
 }
 
@@ -234,38 +289,36 @@ private struct ProResultsView: View {
     var body: some View {
         VStack(spacing: 0) {
             if report.results.isEmpty {
-                EmptyStateView(symbol: "checkmark.seal", title: "Nothing to clean",
-                               message: "Your Mac is already tidy for the selected profiles.")
+                Spacer()
+                StatusMessage(symbol: "checkmark.circle", title: "Nothing to clean",
+                              message: ["Your Mac is already tidy for the selected profiles."])
+                Spacer()
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 6, pinnedViews: [.sectionHeaders]) {
+                    LazyVStack(alignment: .leading, spacing: 6) {
                         if !report.unreadableLocations.isEmpty && !model.hasFullDiskAccess {
                             FullDiskAccessBanner()
                         }
                         ForEach(report.categories, id: \.self) { category in
-                            Section {
-                                ForEach(report.results(in: category)) { result in
+                            let results = report.results(in: category)
+                            SectionTitle(category.title, trailing: ByteFormat.string(results.reduce(0) { $0 + $1.totalBytes }))
+                            VStack(spacing: 0) {
+                                ForEach(Array(results.enumerated()), id: \.element.id) { index, result in
+                                    if index > 0 { RowDivider(leading: 50) }
                                     RuleSection(result: result)
                                 }
-                            } header: {
-                                Label(category.title.uppercased(), systemImage: category.symbolName)
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(.secondary)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 5)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(.regularMaterial)
                             }
+                            .insetGroup()
                         }
                     }
-                    .padding(.horizontal, 10)
+                    .padding(.horizontal, Metrics.gutter)
                     .padding(.bottom, 8)
                 }
             }
             Divider()
             actionBar
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
+                .padding(.horizontal, Metrics.gutter)
+                .padding(.vertical, 10)
         }
         .onChange(of: model.selectedItems) { _, _ in confirming = false }
     }
@@ -276,35 +329,36 @@ private struct ProResultsView: View {
         if confirming {
             VStack(spacing: 8) {
                 Text(confirmationText(permanent: breakdown.permanent, trash: breakdown.trash))
-                    .font(.system(size: 12.5))
+                    .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 8) {
                     Button { confirming = false } label: { Text("Cancel").frame(maxWidth: .infinity) }
-                        .buttonStyle(BubbleButtonStyle())
+                        .keyboardShortcut(.cancelAction)
                     Button {
                         confirming = false
                         model.cleanSelected()
                     } label: { Text("Clean now").frame(maxWidth: .infinity) }
-                        .buttonStyle(BubbleButtonStyle(kind: .primary))
+                        .buttonStyle(.borderedProminent)
                         .keyboardShortcut(.defaultAction)
                 }
             }
         } else {
             HStack(spacing: 8) {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(ByteFormat.string(breakdown.permanent + breakdown.trash))
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .monospacedDigit()
                     Text("\(breakdown.count) of \(report.results.reduce(0) { $0 + $1.items.count }) items selected")
-                        .font(.caption)
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
+                        .monospacedDigit()
                 }
                 Spacer()
                 Button("Rescan") { model.startScan() }
-                    .buttonStyle(BubbleButtonStyle())
                 Button("Clean…") { confirming = true }
-                    .buttonStyle(BubbleButtonStyle(kind: .primary))
+                    .buttonStyle(.borderedProminent)
                     .disabled(breakdown.count == 0)
             }
         }
@@ -322,36 +376,42 @@ private struct RuleSection: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 7) {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(.tertiary)
                     .rotationEffect(.degrees(expanded ? 90 : 0))
+                    .frame(width: 10)
                     .padding(.top, 4)
                 Checkbox(state: model.selectionState(of: result)) { model.toggleAll(in: result) }
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
                         Text(result.rule.name)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.system(size: 13))
                         if result.rule.safety == .review {
                             Tag(text: "Review", color: .orange)
                         }
                     }
                     Text(result.rule.summary)
-                        .font(.caption)
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(detailLine)
-                        .font(.caption2)
+                        .font(.system(size: 10.5))
                         .foregroundStyle(.tertiary)
                 }
                 Spacer(minLength: 4)
                 Text(ByteFormat.string(result.totalBytes))
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
-            .padding(10)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
             .contentShape(Rectangle())
             .onTapGesture {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { expanded.toggle() }
+                withAnimation(.easeOut(duration: 0.2)) { expanded.toggle() }
             }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint(expanded ? "Hides the files" : "Shows the files")
 
             if expanded {
                 VStack(alignment: .leading, spacing: 4) {
@@ -360,16 +420,15 @@ private struct RuleSection: View {
                     }
                     if result.items.count > Self.visibleItemLimit {
                         Text("and \(result.items.count - Self.visibleItemLimit) smaller items")
-                            .font(.caption)
+                            .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }
                 }
-                .padding(.leading, 30)
+                .padding(.leading, 34)
                 .padding(.trailing, 10)
-                .padding(.bottom, 10)
+                .padding(.bottom, 8)
             }
         }
-        .glassCard(radius: 14)
     }
 
     private var detailLine: String {
@@ -382,7 +441,7 @@ private struct RuleSection: View {
         if result.skippedRecentCount > 0 {
             parts.append("\(result.skippedRecentCount) recently used kept")
         }
-        return parts.joined(separator: " · ")
+        return parts.joined(separator: ", ")
     }
 }
 
@@ -392,49 +451,48 @@ private struct FinishedView: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 0) {
             Spacer()
-            GaugeRing(fraction: 1, tint: LinearGradient(colors: [.green, Palette.good], startPoint: .top, endPoint: .bottom)) {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 50, weight: .bold))
-                    .foregroundStyle(Palette.good)
-            }
             if let outcome = model.lastOutcome {
-                VStack(spacing: 6) {
-                    Text("\(ByteFormat.string(outcome.freedBytes + outcome.trashedBytes)) cleaned")
-                        .font(.system(size: 22, weight: .semibold))
-                    if outcome.freedBytes > 0 {
-                        Text("\(ByteFormat.string(outcome.freedBytes)) freed right away.")
-                            .foregroundStyle(.secondary)
-                    }
-                    if outcome.trashedBytes > 0 {
-                        Text("\(ByteFormat.string(outcome.trashedBytes)) is in the Trash. Empty it to get that space back.")
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    if !outcome.failures.isEmpty {
-                        Text("\(outcome.failures.count) item\(outcome.failures.count == 1 ? "" : "s") couldn't be removed.")
-                            .foregroundStyle(.orange)
-                            .help(outcome.failures.prefix(10).map { "\($0.path): \($0.reason)" }.joined(separator: "\n"))
-                    }
+                StatusMessage(symbol: "checkmark.circle.fill", color: .green,
+                              title: "\(ByteFormat.string(outcome.freedBytes + outcome.trashedBytes)) cleaned",
+                              message: lines(for: outcome))
+                if !outcome.failures.isEmpty {
+                    Text("\(outcome.failures.count) item\(outcome.failures.count == 1 ? "" : "s") couldn't be removed.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.orange)
+                        .padding(.top, 6)
+                        .help(outcome.failures.prefix(10).map { "\($0.path): \($0.reason)" }.joined(separator: "\n"))
                 }
-                .font(.callout)
-                .padding(.horizontal, 24)
-
-                HStack(spacing: 8) {
+            }
+            Spacer()
+            HStack(spacing: 8) {
+                if let outcome = model.lastOutcome {
                     if !outcome.record.restorableEntries.isEmpty {
                         Button("Undo") { model.undo(outcome.record) }
-                            .buttonStyle(BubbleButtonStyle())
                     }
                     if model.proMode && outcome.trashedBytes > 0 {
                         Button("Open Trash") { SystemIntegration.openTrash() }
-                            .buttonStyle(BubbleButtonStyle())
                     }
-                    Button("Done") { model.resetScan() }
-                        .buttonStyle(BubbleButtonStyle(kind: .primary))
                 }
+                Spacer()
+                Button("Done") { model.resetScan() }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
             }
-            Spacer()
+            .controlSize(.large)
+            .padding(Metrics.gutter)
         }
+    }
+
+    private func lines(for outcome: CleanupOutcome) -> [String] {
+        var lines: [String] = []
+        if outcome.freedBytes > 0 {
+            lines.append("\(ByteFormat.string(outcome.freedBytes)) freed right away.")
+        }
+        if outcome.trashedBytes > 0 {
+            lines.append("\(ByteFormat.string(outcome.trashedBytes)) is in the Trash. Empty it to get that space back.")
+        }
+        return lines
     }
 }

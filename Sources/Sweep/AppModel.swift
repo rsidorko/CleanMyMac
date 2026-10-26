@@ -106,6 +106,7 @@ final class AppModel: ObservableObject {
     private let home = FileManager.default.homeDirectoryForCurrentUser
     private var scanTask: Task<Void, Never>?
     private var diskTimer: Timer?
+    private var accessTimer: Timer?
 
     init() {
         let defaults = UserDefaults.standard
@@ -124,6 +125,14 @@ final class AppModel: ObservableObject {
         refreshPermissions()
         diskTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
             Task { @MainActor in self.refreshDisk() }
+        }
+        // The menu bar panel's views stay alive between openings, so onAppear only runs the first time.
+        // Opening the panel makes its window key, which is the reliable signal that it's being looked at.
+        NotificationCenter.default.addObserver(forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main) { _ in
+            Task { @MainActor in
+                self.refreshDisk()
+                self.refreshPermissions()
+            }
         }
         detectProfiles()
     }
@@ -146,8 +155,29 @@ final class AppModel: ObservableObject {
     }
 
     func refreshPermissions() {
+        let wasGranted = hasFullDiskAccess
         hasFullDiskAccess = SystemIntegration.hasFullDiskAccess()
         launchesAtLogin = SystemIntegration.launchesAtLogin
+
+        if hasFullDiskAccess {
+            accessTimer?.invalidate()
+            accessTimer = nil
+            if !wasGranted { fullDiskAccessWasGranted() }
+        } else if accessTimer == nil {
+            // macOS doesn't announce when the user turns on Full Disk Access, so check until it's on.
+            accessTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
+                Task { @MainActor in self.refreshPermissions() }
+            }
+        }
+    }
+
+    /// Results found without access are missing the protected folders, so look again.
+    private func fullDiskAccessWasGranted() {
+        if scanState == .ready, report?.unreadableLocations.isEmpty == false {
+            startScan()
+            statusMessage = "Full Disk Access is on. Scanning again to include protected folders."
+        }
+        if appsLoaded { loadApps(force: true) }
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {

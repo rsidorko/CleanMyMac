@@ -38,57 +38,60 @@ private struct SimpleAppsView: View {
     var body: some View {
         let apps = model.unusedApps
         ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Apps you haven't opened in \(thresholdLabel(model.unusedThresholdDays))")
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 6)
+            VStack(alignment: .leading, spacing: 6) {
+                SectionTitle("Not opened in \(thresholdLabel(model.unusedThresholdDays))")
 
-                if apps.isEmpty {
-                    Text("Every app has been used recently.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 30)
+                VStack(spacing: 0) {
+                    if apps.isEmpty {
+                        Text("Every app has been opened recently.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 24)
+                    }
+                    ForEach(Array(apps.enumerated()), id: \.element.id) { index, app in
+                        if index > 0 { RowDivider(leading: 52) }
+                        SimpleAppRow(app: app, confirming: confirming == app.id,
+                                     ask: { withAnimation(.easeOut(duration: 0.2)) { confirming = app.id } },
+                                     cancel: { withAnimation(.easeOut(duration: 0.2)) { confirming = nil } },
+                                     remove: {
+                                         confirming = nil
+                                         model.uninstallWithSupportFiles(app)
+                                     })
+                    }
                 }
-                ForEach(apps) { app in
-                    SimpleAppCard(app: app, confirming: confirming == app.id,
-                                  ask: { withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { confirming = app.id } },
-                                  cancel: { withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { confirming = nil } },
-                                  remove: {
-                                      confirming = nil
-                                      model.uninstallWithSupportFiles(app)
-                                  })
-                }
+                .insetGroup()
 
                 if !model.leftovers.isEmpty {
+                    SectionTitle("Left behind by deleted apps")
                     HStack(spacing: 10) {
-                        BubbleIcon(symbol: "folder.fill", color: Color(red: 0.55, green: 0.60, blue: 0.67), size: 40)
+                        SymbolCircle(symbol: "folder", size: 32)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("Leftovers from deleted apps")
-                                .font(.system(size: 13, weight: .semibold))
-                            Text("\(model.leftovers.count) app\(model.leftovers.count == 1 ? "" : "s") · \(ByteFormat.string(model.leftovers.reduce(0) { $0 + $1.totalBytes }))")
-                                .font(.system(size: 11.5))
+                            Text("Support files of \(model.leftovers.count) app\(model.leftovers.count == 1 ? "" : "s")")
+                                .font(.system(size: 13))
+                            Text(ByteFormat.string(model.leftovers.reduce(0) { $0 + $1.totalBytes }))
+                                .font(.system(size: 11))
                                 .foregroundStyle(.secondary)
+                                .monospacedDigit()
                         }
                         Spacer(minLength: 4)
-                        Button("Clean up") { model.removeAllLeftovers() }
-                            .buttonStyle(BubbleButtonStyle())
+                        Button("Move to Trash") { model.removeAllLeftovers() }
+                            .controlSize(.small)
                             .disabled(model.appsBusy)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .glassCard(radius: 18)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .insetGroup()
                 }
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, Metrics.gutter)
             .padding(.bottom, 60)
         }
         .onChange(of: model.unusedThresholdDays) { _, _ in model.computeSizes(for: model.unusedApps) }
     }
 }
 
-private struct SimpleAppCard: View {
+private struct SimpleAppRow: View {
     @EnvironmentObject private var model: AppModel
     let app: InstalledApp
     let confirming: Bool
@@ -105,20 +108,20 @@ private struct SimpleAppCard: View {
             HStack(spacing: 10) {
                 Image(nsImage: SystemIntegration.icon(for: app.url))
                     .resizable()
-                    .frame(width: 40, height: 40)
+                    .frame(width: 32, height: 32)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(app.name)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 13))
                         .lineLimit(1)
                     Text(subtitle)
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 4)
                 if !confirming {
                     Button(isRunning ? "Open" : "Remove", action: ask)
-                        .buttonStyle(BubbleButtonStyle())
+                        .controlSize(.small)
                         .disabled(isRunning || model.appsBusy)
                         .help(isRunning ? "Quit \(app.name) to remove it." : "Move \(app.name) and its files to the Trash.")
                 }
@@ -126,26 +129,28 @@ private struct SimpleAppCard: View {
             if confirming {
                 HStack(spacing: 8) {
                     Text("Move \(app.name) and its files to the Trash?")
-                        .font(.system(size: 12))
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 4)
                     Button("Keep", action: cancel)
-                        .buttonStyle(BubbleButtonStyle())
-                    Button("Remove", action: remove)
-                        .buttonStyle(BubbleButtonStyle(kind: .danger))
+                        .keyboardShortcut(.cancelAction)
+                    Button("Remove", role: .destructive, action: remove)
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
                 }
+                .controlSize(.small)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .glassCard(radius: 18)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
     }
 
     private var subtitle: String {
         var parts: [String] = []
         if let lastUsed = app.lastUsed { parts.append("Last opened \(DateFormat.relative(lastUsed))") }
         if let size = model.appSizes[app.id] { parts.append(ByteFormat.string(size)) }
-        return parts.joined(separator: " · ")
+        return parts.joined(separator: ", ")
     }
 }
 
@@ -171,78 +176,69 @@ private struct ProAppsView: View {
                 .fixedSize()
                 Spacer()
                 Button("Refresh") { model.loadApps(force: true) }
-                    .buttonStyle(BubbleButtonStyle())
                     .disabled(model.appsLoading)
             }
-            .padding(.horizontal, 18)
+            .controlSize(.small)
+            .padding(.horizontal, Metrics.gutter + 2)
             .padding(.bottom, 8)
 
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 6, pinnedViews: [.sectionHeaders]) {
-                    Section {
+                LazyVStack(alignment: .leading, spacing: 6) {
+                    SectionTitle("Unused apps", trailing: "\(apps.count)")
+                    VStack(spacing: 0) {
                         if apps.isEmpty {
                             Text("No apps have gone unopened that long.")
-                                .font(.callout)
+                                .font(.system(size: 12))
                                 .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(10)
                         }
-                        ForEach(apps) { app in
+                        ForEach(Array(apps.enumerated()), id: \.element.id) { index, app in
+                            if index > 0 { RowDivider(leading: 60) }
                             ProAppRow(app: app)
                         }
-                    } header: {
-                        SectionHeader(title: "Unused apps · \(apps.count)")
                     }
+                    .insetGroup()
 
-                    Section {
+                    SectionTitle("Left behind by deleted apps", trailing: "\(model.leftovers.count)")
+                    VStack(spacing: 0) {
                         if model.leftovers.isEmpty {
                             Text("No leftover app data found.")
-                                .font(.callout)
+                                .font(.system(size: 12))
                                 .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(10)
                         }
-                        ForEach(model.leftovers) { group in
+                        ForEach(Array(model.leftovers.enumerated()), id: \.element.id) { index, group in
+                            if index > 0 { RowDivider(leading: 50) }
                             LeftoverRow(group: group)
                         }
-                        if !model.leftovers.isEmpty {
-                            HStack {
-                                Spacer()
-                                Button("Move \(ByteFormat.string(model.selectedLeftoverBytes)) to Trash") {
-                                    model.removeSelectedLeftovers()
-                                }
-                                .buttonStyle(BubbleButtonStyle(kind: .primary))
-                                .disabled(model.selectedLeftovers.isEmpty || model.appsBusy)
+                    }
+                    .insetGroup()
+                    if !model.leftovers.isEmpty {
+                        HStack {
+                            Spacer()
+                            Button("Move \(ByteFormat.string(model.selectedLeftoverBytes)) to Trash") {
+                                model.removeSelectedLeftovers()
                             }
-                            .padding(.top, 4)
+                            .buttonStyle(.borderedProminent)
+                            .disabled(model.selectedLeftovers.isEmpty || model.appsBusy)
                         }
-                    } header: {
-                        SectionHeader(title: "Left behind by deleted apps · \(model.leftovers.count)")
+                        .padding(.top, 2)
                     }
 
                     Text("Apps without a recorded last-use date are not listed. Apple apps and apps that are open can't be removed here.")
-                        .font(.caption)
+                        .font(.system(size: 11))
                         .foregroundStyle(.tertiary)
-                        .padding(.horizontal, 8)
-                        .padding(.top, 8)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 6)
+                        .padding(.top, 6)
                 }
-                .padding(.horizontal, 10)
+                .padding(.horizontal, Metrics.gutter)
                 .padding(.bottom, 60)
             }
         }
         .onChange(of: model.unusedThresholdDays) { _, _ in model.computeSizes(for: model.unusedApps) }
-    }
-}
-
-private struct SectionHeader: View {
-    let title: String
-
-    var body: some View {
-        Text(title.uppercased())
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.regularMaterial)
     }
 }
 
@@ -262,16 +258,17 @@ private struct ProAppRow: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 9) {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(.tertiary)
                     .rotationEffect(.degrees(expanded ? 90 : 0))
+                    .frame(width: 10)
                 Image(nsImage: SystemIntegration.icon(for: app.url))
                     .resizable()
-                    .frame(width: 36, height: 36)
+                    .frame(width: 32, height: 32)
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(spacing: 4) {
                         Text(app.name)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.system(size: 13))
                             .lineLimit(1)
                         if isRunning { Tag(text: "Open", color: .orange) }
                     }
@@ -284,14 +281,17 @@ private struct ProAppRow: View {
                 Spacer(minLength: 4)
                 if let size = model.appSizes[app.id] {
                     Text(ByteFormat.string(size))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
                         .monospacedDigit()
                 }
             }
-            .padding(10)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
             .contentShape(Rectangle())
             .onTapGesture {
                 let willExpand = !expanded
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { expanded = willExpand }
+                withAnimation(.easeOut(duration: 0.2)) { expanded = willExpand }
                 if willExpand && related == nil { loadRelated() }
             }
 
@@ -341,14 +341,16 @@ private struct ProAppRow: View {
                                 .foregroundStyle(.secondary)
                             Spacer(minLength: 4)
                             Button("Cancel") { confirming = false }
-                                .buttonStyle(BubbleButtonStyle())
-                            Button("Move to Trash") {
+                                .keyboardShortcut(.cancelAction)
+                            Button("Move to Trash", role: .destructive) {
                                 confirming = false
                                 let files = (related ?? []).filter { included.contains($0.id) }
                                 model.uninstall(app, including: files)
                             }
-                            .buttonStyle(BubbleButtonStyle(kind: .danger))
+                            .buttonStyle(.borderedProminent)
+                            .tint(.red)
                         }
+                        .controlSize(.small)
                     } else {
                         HStack(spacing: 8) {
                             Text(isRunning ? "Quit \(app.name) to uninstall it." : "Everything goes to the Trash, so you can put it back.")
@@ -356,7 +358,7 @@ private struct ProAppRow: View {
                                 .foregroundStyle(.secondary)
                             Spacer(minLength: 4)
                             Button("Uninstall…") { confirming = true }
-                                .buttonStyle(BubbleButtonStyle())
+                                .controlSize(.small)
                                 .disabled(isRunning || related == nil || model.appsBusy)
                         }
                     }
@@ -366,7 +368,6 @@ private struct ProAppRow: View {
                 .padding(.bottom, 10)
             }
         }
-        .glassCard(radius: 14)
     }
 
     private func loadRelated() {
@@ -387,36 +388,40 @@ private struct LeftoverRow: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 7) {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(.tertiary)
                     .rotationEffect(.degrees(expanded ? 90 : 0))
+                    .frame(width: 10)
                     .padding(.top, 4)
                 Checkbox(isOn: model.selectedLeftovers.contains(group.id)) { model.toggleLeftover(group) }
                 VStack(alignment: .leading, spacing: 1) {
                     Text(SystemIntegration.appName(for: group.bundleID) ?? group.bundleID)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 13))
                         .lineLimit(1)
-                    Text("\(group.bundleID) · \(group.items.count) item\(group.items.count == 1 ? "" : "s")")
-                        .font(.caption)
+                    Text("\(group.bundleID), \(group.items.count) item\(group.items.count == 1 ? "" : "s")")
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 4)
                 Text(ByteFormat.string(group.totalBytes))
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
-            .padding(10)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
             .contentShape(Rectangle())
             .onTapGesture {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { expanded.toggle() }
+                withAnimation(.easeOut(duration: 0.2)) { expanded.toggle() }
             }
 
             if expanded {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(group.items) { item in
                         HStack(spacing: 6) {
-                            Image(systemName: "folder.fill")
-                                .foregroundStyle(.blue)
+                            Image(systemName: "folder")
+                                .foregroundStyle(.secondary)
                             Text(item.location + "/" + item.displayName)
                                 .font(.caption)
                                 .lineLimit(1)
@@ -437,6 +442,5 @@ private struct LeftoverRow: View {
                 .padding(.bottom, 10)
             }
         }
-        .glassCard(radius: 14)
     }
 }

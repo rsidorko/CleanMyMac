@@ -17,10 +17,11 @@ struct Checkbox: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
+                .font(.system(size: 15))
                 .foregroundStyle(state == .none ? Color.secondary : Color.accentColor)
-                .imageScale(.large)
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(state == .all ? .isSelected : [])
     }
 
     private var symbol: String {
@@ -138,21 +139,31 @@ struct EmptyStateView: View {
 
 struct FullDiskAccessBanner: View {
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: 10) {
             Image(systemName: "lock.shield")
+                .font(.system(size: 15))
                 .foregroundStyle(.orange)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Some folders couldn't be read")
-                    .font(.callout.weight(.semibold))
-                Text("Grant Full Disk Access so Sweep can include the Trash, Mail downloads and app containers.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Button("Open Privacy Settings") { SystemIntegration.openFullDiskAccessSettings() }
-                    .buttonStyle(BubbleButtonStyle())
+            VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Some folders couldn't be read")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text("Allow Full Disk Access so Sweep can include the Trash, Mail downloads and app containers.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                HStack(spacing: 6) {
+                    Button("Open Privacy Settings") { SystemIntegration.openFullDiskAccessSettings() }
+                    if SystemIntegration.canRelaunch {
+                        Button("Relaunch Sweep") { SystemIntegration.relaunch() }
+                            .help("Already turned it on? macOS may need Sweep to restart before it applies.")
+                    }
+                }
+                .controlSize(.small)
             }
         }
-        .padding(12)
+        .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .insetGroup()
     }
 }

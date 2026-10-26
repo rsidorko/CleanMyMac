@@ -42,6 +42,22 @@ enum SystemIntegration {
         }
     }
 
+    /// Relaunching only makes sense from the .app bundle; `swift run` and scripts/dev.sh run a bare binary.
+    static var canRelaunch: Bool {
+        Bundle.main.bundleURL.pathExtension == "app"
+    }
+
+    /// Quits and reopens the app. macOS sometimes applies a newly granted Full Disk Access only to new processes.
+    static func relaunch() {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        // Waits for this copy to exit, then opens the bundle again.
+        process.arguments = ["-c", "while kill -0 \(ProcessInfo.processInfo.processIdentifier) 2>/dev/null; do sleep 0.2; done; open \"$0\"",
+                             Bundle.main.bundlePath]
+        guard (try? process.run()) != nil else { return }
+        NSApp.terminate(nil)
+    }
+
     static func revealInFinder(_ url: URL) {
         NSWorkspace.shared.activateFileViewerSelecting([url])
     }
@@ -99,5 +115,12 @@ enum DateFormat {
 
     static func relative(_ date: Date) -> String {
         relativeFormatter.localizedString(for: date, relativeTo: Date())
+    }
+}
+
+extension String {
+    /// "yesterday" → "Yesterday", for relative dates that start a line.
+    var capitalizingFirstLetter: String {
+        prefix(1).uppercased() + dropFirst()
     }
 }

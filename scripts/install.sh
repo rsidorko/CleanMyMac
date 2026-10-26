@@ -66,4 +66,4 @@ ditto "$source_app" "$DEST"
 xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
 
 open "$DEST"
-echo "Installed $DEST. Look for the sparkles icon in your menu bar."
+echo "Installed $DEST. Look for the trash can icon in your menu bar."

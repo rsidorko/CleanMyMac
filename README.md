@@ -1,8 +1,43 @@
 # Sweep
 
-A macOS menu bar app that frees up storage. You tell it what you use your Mac for (everyday use, office work, development, creative work, gaming) and it cleans thoroughly where that's safe and carefully where your work depends on the files.
+A menu bar storage cleaner for macOS that tunes itself to what you use your Mac for. Cleaning takes one click, and every detail is one switch away in Pro.
 
-Sweep lives in the menu bar next to Control Center. It opens in a simple mode: one Scan button, an on/off card for each kind of junk, and one Clean button. Tap **Pro** for every rule and file, items that need review, app support files, leftovers from deleted apps, settings and undo history.
+Sweep sits in the menu bar next to Control Center and looks like the rest of macOS: the menu material, your accent color, and standard switches, buttons and grouped lists. Tell it what the Mac is for (everyday use, office and school, development, creative work, gaming). It cleans thoroughly where that's safe and carefully where your work depends on the files.
+
+## Using Sweep
+
+- **Scan and clean.** Click **Scan**, switch off any kind of junk you want to keep, then click **Clean**. Simple mode only offers safe data that rebuilds itself, and nothing is removed until you confirm.
+- **Turn on Pro.** The Pro switch in the header shows every rule and file, items that need review, app support files, leftovers from deleted apps, settings and undo history.
+- **Change profiles.** In Pro › Settings, add or remove a profile and scan again. Each rule's treatment follows the table below.
+- **Undo.** Anything that went to the Trash can be put back from the finished screen or from Pro › Settings › Recent cleanups.
+- **Remove unused apps.** The Apps tab lists apps you haven't opened in months. Removing one moves the app and its support files to the Trash together.
+
+## How your profiles shape each rule
+
+Every cleanup rule belongs to a category, and your profiles decide how that category is treated:
+
+| Treatment | Age limit | Checked by default |
+|---|---|---|
+| Aggressive: data from tools you don't use | half | even when costly to rebuild |
+| Standard: system junk and downloads | as written | unless costly to rebuild |
+| Careful: your own tools' data | doubled, at least 30 days | only if cheap to rebuild |
+| Protect | not scanned | never |
+
+Developer, creative and game data is treated **carefully** by the profile that uses it and **aggressively** by everyone else. System junk and downloads are always **standard**. A few rules have their own settings:
+
+- With Development, Xcode build data, old device support files and idle `node_modules` and Rust build folders stay **standard**. They rebuild, and they are usually the biggest wins.
+- With Gaming, the Steam shader cache is **protected**, because removing it makes games stutter.
+
+When you pick several profiles and they disagree, the most careful treatment wins. A developer who also edits photos keeps their Lightroom previews.
+
+Rules marked **Review** (Trash, iPhone backups, Xcode archives, forgotten downloads) are never checked for you, whatever the profile.
+
+## Safety
+
+- Every path is checked against a fixed guard when it's found and again right before removal. Sweep only works inside your home folder (and `/Applications` for uninstalls). It never touches Keychains, iCloud Drive, Mail, Messages, `.ssh`, or photo and music libraries, and it resolves symlinked parent folders before deciding.
+- Caches of apps that are open are left unchecked.
+- Data that rebuilds itself is deleted right away so the space comes back immediately. Everything else goes to the Trash and can be put back with Undo. "Always use the Trash" in Pro › Settings changes this.
+- Leftovers from deleted apps are only offered when no installed app from the same developer remains and nothing has written to them for 30 days.
 
 ## Install
 
@@ -38,41 +73,25 @@ cd CleanMyMac
 
 ### After installing
 
-- **Put it next to Control Center:** macOS places new menu bar icons itself. Hold ⌘ and drag the sparkles icon next to Control Center; macOS remembers the spot.
-- **Full Disk Access:** setup asks for it so Sweep can read the Trash, Mail downloads and app containers. System Settings › Privacy & Security › Full Disk Access › turn on Sweep. Installing a new build resets this, because each build has a new ad-hoc signature.
-
-## How profiles work
-
-Every cleanup rule belongs to a category. Your profiles decide how each category is treated:
-
-| Treatment | Age limit | Checked by default |
-|---|---|---|
-| Aggressive (data from tools you don't use) | half | even when costly to rebuild |
-| Standard (system junk, downloads) | as written | unless costly to rebuild |
-| Careful (your own tools' data) | doubled, at least 30 days | only if cheap to rebuild |
-| Protect | not scanned | never |
-
-With several profiles selected, the most careful treatment wins.
-
-## Safety
-
-- Every path is checked against a fixed guard when it's found and again right before removal: only inside your home folder (and `/Applications` for uninstalls), never Keychains, iCloud Drive, Mail, Messages, `.ssh`, photo or music libraries, and symlinked parents are resolved.
-- Caches of apps that are open are left unchecked.
-- Data that rebuilds itself is deleted right away so the space comes back immediately. Everything else goes to the Trash and can be put back with Undo. "Always use the Trash" in Pro › Settings changes this.
+- **Put it next to Control Center.** macOS places new menu bar icons itself. Hold ⌘ and drag the trash can icon next to Control Center, and macOS remembers the spot.
+- **Allow Full Disk Access.** Setup asks for it so Sweep can read the Trash, Mail downloads and app containers: System Settings › Privacy & Security › Full Disk Access › turn on Sweep. Installing a new build resets this, because each build has a new ad-hoc signature.
 
 ## Development
 
 ```sh
+./scripts/dev.sh             # live: rebuilds and relaunches Sweep in the menu bar on every save
 swift build
-swift test
-swift run Sweep              # runs without the .app bundle
+swift test                   # needs Xcode (XCTest isn't in the Command Line Tools)
+swift run Sweep              # runs once without the .app bundle
 ./scripts/build-app.sh       # builds build/Sweep.app (UNIVERSAL=1 for arm64 + x86_64)
 ```
 
-- `Sources/SweepCore`: rules, profiles, scanner, cleaner, history, app inventory. No UI.
-- `Sources/Sweep`: the SwiftUI menu bar app.
+`scripts/dev.sh` quits any installed copy and runs a debug build in the menu bar. It also opens the panel in a floating preview window, so you can see changes without clicking the icon. After a failed build the previous build keeps running and the errors are printed. It uses `fswatch` if installed (`brew install fswatch`) and otherwise checks for changes every second. Run `SWEEP_PREVIEW=0 ./scripts/dev.sh` to skip the preview window. The debug build runs as a bare binary started from your terminal, so macOS checks the terminal's Full Disk Access, not Sweep's. Test the permission flow with `./scripts/install.sh`.
+
+- `Sources/SweepCore`: rules, profiles, scanner, cleaner, history and app inventory. No UI.
+- `Sources/Sweep`: the SwiftUI menu bar app. `Views/Style.swift` holds the shared look (grouped rows, section titles, the capacity bar).
 - Rules live in `Sources/SweepCore/Rules/DefaultRules.swift` as JSON. A file at `~/Library/Application Support/Sweep/rules.json` with the same shape overrides rules by id.
-- `docs/sweep-prototype.html`: an interactive browser prototype of the panel.
+- `docs/sweep-prototype.html`: an interactive browser prototype of the panel, with a table of how your profiles treat every rule.
 
 CI on GitHub Actions builds, tests and publishes the app to the `latest-build` pre-release on every push.
 

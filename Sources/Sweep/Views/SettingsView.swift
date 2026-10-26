@@ -7,8 +7,8 @@ struct SettingsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                GroupLabel("What do you use this Mac for?")
+            VStack(alignment: .leading, spacing: 6) {
+                SectionTitle("What do you use this Mac for?")
                 ProfilePicker()
                 if let suggestion = model.suggestion, !suggestion.profiles.isEmpty,
                    Set(suggestion.profiles) != model.profiles {
@@ -17,70 +17,72 @@ struct SettingsView: View {
                     }
                 }
 
-                GroupLabel("Options")
+                SectionTitle("Options")
                 VStack(spacing: 0) {
                     SettingRow(title: "Show free space in menu bar", isOn: $model.showFreeSpaceInMenuBar)
-                    Divider().padding(.leading, 12)
+                    RowDivider()
                     SettingRow(title: "Always use the Trash",
                                detail: "Rebuildable caches are normally deleted right away so the space is freed immediately.",
                                isOn: $model.alwaysUseTrash)
-                    Divider().padding(.leading, 12)
+                    RowDivider()
                     SettingRow(title: "Open at login",
                                isOn: Binding(get: { model.launchesAtLogin }, set: { model.setLaunchAtLogin($0) }))
                 }
-                .glassCard()
+                .insetGroup()
 
-                GroupLabel("Permissions")
+                SectionTitle("Permissions")
                 HStack(spacing: 10) {
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Full Disk Access")
-                            .font(.system(size: 12.5))
+                            .font(.system(size: 13))
                         Text("Needed to read the Trash, Mail downloads and app containers.")
-                            .font(.system(size: 10.5))
+                            .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 4)
                     if model.hasFullDiskAccess {
                         Label("Allowed", systemImage: "checkmark.circle.fill")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Palette.good)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .symbolRenderingMode(.multicolor)
                     } else {
                         Button("Open Settings") { SystemIntegration.openFullDiskAccessSettings() }
-                            .buttonStyle(BubbleButtonStyle())
+                            .controlSize(.small)
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 9)
-                .glassCard()
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .insetGroup()
 
-                GroupLabel("Recent cleanups")
+                SectionTitle("Recent cleanups")
                 VStack(spacing: 0) {
                     if model.history.isEmpty {
                         Text("Nothing cleaned yet.")
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(12)
+                            .padding(10)
                     }
                     ForEach(Array(model.history.prefix(8).enumerated()), id: \.element.id) { index, record in
-                        if index > 0 { Divider().padding(.leading, 12) }
+                        if index > 0 { RowDivider() }
                         HistoryRow(record: record)
                     }
                 }
-                .glassCard()
+                .insetGroup()
 
                 HStack {
                     Spacer()
-                    Button("Run setup again") { model.hasOnboarded = false }
-                        .buttonStyle(BubbleButtonStyle())
+                    Button("Run Setup Again") { model.hasOnboarded = false }
+                        .controlSize(.small)
                     Spacer()
                 }
+                .padding(.top, 10)
                 Text("Sweep \(Self.version)")
-                    .font(.caption)
+                    .font(.system(size: 11))
                     .foregroundStyle(.tertiary)
                     .frame(maxWidth: .infinity)
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, Metrics.gutter)
             .padding(.bottom, 60)
         }
         .onAppear { model.refreshPermissions() }
@@ -94,19 +96,6 @@ struct SettingsView: View {
     }
 }
 
-private struct GroupLabel: View {
-    let text: String
-    init(_ text: String) { self.text = text }
-
-    var body: some View {
-        Text(text.uppercased())
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(.secondary)
-            .padding(.leading, 6)
-            .padding(.top, 4)
-    }
-}
-
 private struct SettingRow: View {
     let title: String
     var detail: String?
@@ -116,19 +105,19 @@ private struct SettingRow: View {
         Toggle(isOn: $isOn) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.system(size: 12.5))
+                    .font(.system(size: 13))
                 if let detail {
                     Text(detail)
-                        .font(.system(size: 10.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
         .toggleStyle(.switch)
-        .tint(Palette.good)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
+        .controlSize(.mini)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
     }
 }
 
@@ -140,18 +129,19 @@ private struct HistoryRow: View {
         HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 1) {
                 Text("\(ByteFormat.string(record.totalBytes)) cleaned")
-                    .font(.system(size: 12.5))
-                Text("\(DateFormat.relative(record.date)) · \(record.entries.count) item\(record.entries.count == 1 ? "" : "s")")
-                    .font(.system(size: 10.5))
+                    .font(.system(size: 13))
+                    .monospacedDigit()
+                Text("\(DateFormat.relative(record.date).capitalizingFirstLetter), \(record.entries.count) item\(record.entries.count == 1 ? "" : "s")")
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 4)
             if !record.restorableEntries.isEmpty {
                 Button("Undo") { model.undo(record) }
-                    .buttonStyle(BubbleButtonStyle())
+                    .controlSize(.small)
             }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 10)
         .padding(.vertical, 8)
     }
 }
@@ -167,12 +157,12 @@ struct SuggestionCard: View {
                     .font(.system(size: 12, weight: .semibold))
                 Spacer(minLength: 4)
                 Button("Apply", action: apply)
-                    .buttonStyle(BubbleButtonStyle())
+                    .controlSize(.small)
             }
             EvidenceList(suggestion: suggestion)
         }
-        .padding(12)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.accentColor.opacity(0.12)))
+        .padding(10)
+        .insetGroup()
     }
 }
 
@@ -183,10 +173,20 @@ struct EvidenceList: View {
         let lines = suggestion.profiles.flatMap { suggestion.evidence[$0] ?? [] }.prefix(4)
         VStack(alignment: .leading, spacing: 2) {
             ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                Text("• " + line)
+                Label(line, systemImage: "checkmark")
                     .font(.system(size: 11))
+                    .labelStyle(EvidenceLabelStyle())
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+}
+
+private struct EvidenceLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 5) {
+            configuration.icon.font(.system(size: 9, weight: .semibold)).foregroundStyle(.tertiary)
+            configuration.title
         }
     }
 }
@@ -201,7 +201,7 @@ struct ProfilePicker: View {
         LazyVGrid(columns: columns, spacing: 8) {
             ForEach(UsageProfile.allCases) { profile in
                 ProfileTile(profile: profile, isSelected: model.profiles.contains(profile)) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { model.toggle(profile) }
+                    withAnimation(.easeOut(duration: 0.15)) { model.toggle(profile) }
                 }
             }
         }
@@ -217,12 +217,12 @@ private struct ProfileTile: View {
         Button(action: action) {
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: profile.symbolName)
-                    .font(.system(size: 16))
+                    .font(.system(size: 14))
                     .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
-                    .frame(width: 22)
+                    .frame(width: 20)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(profile.title)
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .font(.system(size: 12, weight: .medium))
                     Text(profile.summary)
                         .font(.system(size: 10.5))
                         .foregroundStyle(.secondary)
@@ -230,19 +230,17 @@ private struct ProfileTile: View {
                 }
                 Spacer(minLength: 0)
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary.opacity(0.4))
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary.opacity(0.5))
             }
-            .padding(10)
-            .frame(maxWidth: .infinity, minHeight: 64, alignment: .topLeading)
-            .background {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(isSelected ? Color.accentColor.opacity(0.14) : Color.white.opacity(0.08))
-            }
+            .padding(9)
+            .frame(maxWidth: .infinity, minHeight: 60, alignment: .topLeading)
+            .background(isSelected ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.05),
+                        in: RoundedRectangle(cornerRadius: Metrics.groupRadius, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(isSelected ? Color.accentColor.opacity(0.6) : Color.white.opacity(0.25), lineWidth: 1)
+                RoundedRectangle(cornerRadius: Metrics.groupRadius, style: .continuous)
+                    .strokeBorder(isSelected ? Color.accentColor.opacity(0.5) : Color.clear, lineWidth: 1)
             }
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: Metrics.groupRadius, style: .continuous))
         }
         .buttonStyle(TileStyle())
         .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -251,8 +249,7 @@ private struct ProfileTile: View {
     private struct TileStyle: ButtonStyle {
         func makeBody(configuration: Configuration) -> some View {
             configuration.label
-                .scaleEffect(configuration.isPressed ? 0.96 : 1)
-                .animation(.spring(response: 0.25, dampingFraction: 0.5), value: configuration.isPressed)
+                .opacity(configuration.isPressed ? 0.7 : 1)
         }
     }
 }
